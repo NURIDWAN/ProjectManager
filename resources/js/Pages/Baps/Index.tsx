@@ -110,7 +110,7 @@ export default function Index({ baps, clients, filters }: Props) {
         {
             accessorKey: 'nomor_surat',
             header: ({ column }) => (
-                <DataTableColumnHeader column={column} title="Nomor Surat" />
+                <DataTableColumnHeader column={column} title="No. Surat" />
             ),
         },
         {
@@ -138,6 +138,7 @@ export default function Index({ baps, clients, filters }: Props) {
             cell: ({ row }) => (
                 <span>{row.original.work_report_ids?.length ?? 0} laporan</span>
             ),
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             accessorKey: 'status',
@@ -207,7 +208,7 @@ export default function Index({ baps, clients, filters }: Props) {
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
                             items={{ all: 'Semua Status', draft: 'Draft', approved: 'Approved' }}
                         >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -222,7 +223,7 @@ export default function Index({ baps, clients, filters }: Props) {
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
                             items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full sm:w-[200px]">
                                 <SelectValue placeholder="Klien" />
                             </SelectTrigger>
                             <SelectContent>
@@ -244,12 +245,14 @@ export default function Index({ baps, clients, filters }: Props) {
 
                     {/* Server-side Pagination */}
                     {baps.last_page > 1 && (
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
                                 Menampilkan {baps.from}–{baps.to} dari{' '}
                                 {baps.total} data
                             </p>
-                            <div className="flex items-center gap-2">
+
+                            {/* Desktop pagination: all buttons */}
+                            <div className="hidden items-center gap-2 sm:flex">
                                 {baps.links.map((link, index) => (
                                     <Button
                                         key={index}
@@ -264,6 +267,38 @@ export default function Index({ baps, clients, filters }: Props) {
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />
                                 ))}
+                            </div>
+
+                            {/* Mobile pagination: prev/next only */}
+                            <div className="flex items-center gap-2 sm:hidden">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!baps.links[0]?.url}
+                                    onClick={() => {
+                                        if (baps.links[0]?.url) {
+                                            router.get(baps.links[0].url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    &laquo; Prev
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                    {baps.current_page} / {baps.last_page}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!baps.links[baps.links.length - 1]?.url}
+                                    onClick={() => {
+                                        const lastLink = baps.links[baps.links.length - 1];
+                                        if (lastLink?.url) {
+                                            router.get(lastLink.url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    Next &raquo;
+                                </Button>
                             </div>
                         </div>
                     )}

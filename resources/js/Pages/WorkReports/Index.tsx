@@ -172,11 +172,13 @@ export default function Index({ workReports, clients, filters }: Props) {
             id: 'category_name',
             header: 'Kategori',
             accessorFn: (row) => row.category?.name ?? '-',
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             id: 'technician_name',
             header: 'Teknisi',
             accessorFn: (row) => row.technician?.name ?? '-',
+            meta: { responsiveHidden: 'tablet' },
         },
         {
             accessorKey: 'description',
@@ -186,6 +188,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                     {row.original.description || '-'}
                 </span>
             ),
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             accessorKey: 'status',
@@ -267,7 +270,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
                             items={{ all: 'Semua Status', draft: 'Draft', submitted: 'Submitted' }}
                         >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -282,7 +285,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
                             items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full sm:w-[200px]">
                                 <SelectValue placeholder="Klien" />
                             </SelectTrigger>
                             <SelectContent>
@@ -322,12 +325,14 @@ export default function Index({ workReports, clients, filters }: Props) {
 
                     {/* Server-side Pagination */}
                     {workReports.last_page > 1 && (
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
                                 Menampilkan {workReports.from}–{workReports.to} dari{' '}
                                 {workReports.total} data
                             </p>
-                            <div className="flex items-center gap-2">
+
+                            {/* Desktop pagination: all buttons */}
+                            <div className="hidden items-center gap-2 sm:flex">
                                 {workReports.links.map((link, index) => (
                                     <Button
                                         key={index}
@@ -342,6 +347,38 @@ export default function Index({ workReports, clients, filters }: Props) {
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />
                                 ))}
+                            </div>
+
+                            {/* Mobile pagination: prev/next only */}
+                            <div className="flex items-center gap-2 sm:hidden">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!workReports.links[0]?.url}
+                                    onClick={() => {
+                                        if (workReports.links[0]?.url) {
+                                            router.get(workReports.links[0].url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    &laquo; Prev
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                    {workReports.current_page} / {workReports.last_page}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!workReports.links[workReports.links.length - 1]?.url}
+                                    onClick={() => {
+                                        const lastLink = workReports.links[workReports.links.length - 1];
+                                        if (lastLink?.url) {
+                                            router.get(lastLink.url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    Next &raquo;
+                                </Button>
                             </div>
                         </div>
                     )}

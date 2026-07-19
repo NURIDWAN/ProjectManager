@@ -122,6 +122,7 @@ export default function ServicesIndex({ services, filters }: Props) {
         {
             accessorKey: 'unit',
             header: 'Satuan',
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             accessorKey: 'price',
@@ -131,6 +132,7 @@ export default function ServicesIndex({ services, filters }: Props) {
         {
             accessorKey: 'type',
             header: 'Tipe',
+            meta: { responsiveHidden: 'mobile' },
             cell: ({ row }) => (
                 <Badge variant={row.original.type === 'service' ? 'default' : 'secondary'}>
                     {row.original.type === 'service' ? 'Jasa' : 'Produk'}
@@ -218,7 +220,7 @@ export default function ServicesIndex({ services, filters }: Props) {
                             onValueChange={(value) => handleTypeFilter(value ?? 'all')}
                             items={{ all: 'Semua Tipe', service: 'Jasa', product: 'Produk' }}
                         >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Semua Tipe" />
                             </SelectTrigger>
                             <SelectContent>
@@ -232,7 +234,7 @@ export default function ServicesIndex({ services, filters }: Props) {
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
                             items={{ all: 'Semua Status', '1': 'Aktif', '0': 'Nonaktif' }}
                         >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Semua Status" />
                             </SelectTrigger>
                             <SelectContent>

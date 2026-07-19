@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -6,31 +6,21 @@ import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 
-interface Client {
+interface UserListItem {
     id: number;
     name: string;
-    npwp: string | null;
-    address: string;
-    pic_name: string | null;
-    pic_phone: string | null;
-    is_active: boolean;
+    email: string;
+    roles: { id: number; name: string }[];
     created_at: string;
 }
 
 interface PaginatedData {
-    data: Client[];
+    data: UserListItem[];
     current_page: number;
     last_page: number;
     per_page: number;
@@ -42,21 +32,22 @@ interface PaginatedData {
 
 interface Filters {
     search: string;
-    is_active: string;
+    sort_field: string;
+    sort_direction: string;
 }
 
 interface Props {
-    clients: PaginatedData;
+    users: PaginatedData;
     filters: Filters;
 }
 
-export default function ClientsIndex({ clients, filters }: Props) {
+export default function UsersIndex({ users, filters }: Props) {
     const [search, setSearch] = useState(filters.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters.is_active || '');
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+    const [userToDelete, setUserToDelete] = useState<UserListItem | null>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const { flash } = usePage().props as any;
+    const { flash, auth } = usePage().props as any;
 
     // Show flash messages as toasts
     if (flash?.success) {
@@ -66,104 +57,128 @@ export default function ClientsIndex({ clients, filters }: Props) {
         toast.error(flash.error);
     }
 
+    const performSearch = useCallback(
+        (value: string) => {
+            router.get(
+                '/users',
+                {
+                    search: value,
+                    sort_field: filters.sort_field,
+                    sort_direction: filters.sort_direction,
+                },
+                { preserveState: true, replace: true }
+            );
+        },
+        [filters.sort_field, filters.sort_direction]
+    );
+
     const handleSearch = (value: string) => {
         setSearch(value);
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+        debounceRef.current = setTimeout(() => {
+            performSearch(value);
+        }, 300);
+    };
+
+    // Cleanup debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, []);
+
+    const handleSort = (field: string) => {
+        let direction = 'asc';
+        if (filters.sort_field === field && filters.sort_direction === 'asc') {
+            direction = 'desc';
+        }
         router.get(
-            '/clients',
-            { search: value, is_active: statusFilter },
+            '/users',
+            { search, sort_field: field, sort_direction: direction },
             { preserveState: true, replace: true }
         );
     };
 
-    const handleStatusFilter = (value: string) => {
-        const filterValue = value === 'all' ? '' : value;
-        setStatusFilter(filterValue);
-        router.get(
-            '/clients',
-            { search, is_active: filterValue },
-            { preserveState: true, replace: true }
-        );
-    };
-
-    const handleDelete = (client: Client) => {
-        setClientToDelete(client);
+    const handleDelete = (user: UserListItem) => {
+        setUserToDelete(user);
         setDeleteModalOpen(true);
     };
 
     const confirmDelete = () => {
-        if (!clientToDelete) return;
-        router.delete(`/clients/${clientToDelete.id}`, {
-            data: { confirmed: true },
+        if (!userToDelete) return;
+        router.delete(`/users/${userToDelete.id}`, {
             onSuccess: () => {
-                toast.success('Klien berhasil dihapus.');
+                toast.success('Pengguna berhasil dihapus.');
                 setDeleteModalOpen(false);
-                setClientToDelete(null);
+                setUserToDelete(null);
             },
             onError: () => {
-                toast.error('Gagal menghapus klien.');
+                toast.error('Gagal menghapus pengguna.');
                 setDeleteModalOpen(false);
-                setClientToDelete(null);
+                setUserToDelete(null);
             },
         });
     };
 
-    const columns: ColumnDef<Client, any>[] = [
+    const columns: ColumnDef<UserListItem, any>[] = [
         {
             accessorKey: 'name',
             header: ({ column }) => (
                 <DataTableColumnHeader column={column} title="Nama" />
             ),
+            enableSorting: true,
         },
         {
-            accessorKey: 'npwp',
-            header: 'NPWP',
-            meta: { responsiveHidden: 'mobile' },
-            cell: ({ row }) => row.original.npwp || '-',
-        },
-        {
-            accessorKey: 'address',
-            header: 'Alamat',
-            meta: { responsiveHidden: 'mobile' },
-            cell: ({ row }) => (
-                <span className="line-clamp-2 max-w-xs">
-                    {row.original.address}
-                </span>
+            accessorKey: 'email',
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="Email" />
             ),
+            enableSorting: true,
         },
         {
-            accessorKey: 'pic_name',
-            header: 'PIC',
-            meta: { responsiveHidden: 'tablet' },
-            cell: ({ row }) => row.original.pic_name || '-',
-        },
-        {
-            accessorKey: 'is_active',
-            header: 'Status',
-            cell: ({ row }) => (
-                <Badge variant={row.original.is_active ? 'default' : 'secondary'}>
-                    {row.original.is_active ? 'Aktif' : 'Nonaktif'}
-                </Badge>
-            ),
+            id: 'role',
+            header: 'Role',
+            cell: ({ row }) => {
+                const roles = row.original.roles;
+                if (!roles || roles.length === 0) return '-';
+                return (
+                    <div className="flex flex-wrap gap-1">
+                        {roles.map((role) => (
+                            <Badge key={role.id} variant="secondary">
+                                {role.name}
+                            </Badge>
+                        ))}
+                    </div>
+                );
+            },
         },
         {
             id: 'actions',
             header: 'Aksi',
-            cell: ({ row }) => (
-                <div className="flex items-center gap-2">
-                    <Link href={`/clients/${row.original.id}/edit`}>
-                        <Button variant="ghost" size="icon-sm">
-                            <Pencil className="size-4" />
+            cell: ({ row }) => {
+                const isSelf = row.original.id === auth?.user?.id;
+                return (
+                    <div className="flex items-center gap-2">
+                        <Link href={`/users/${row.original.id}/edit`}>
+                            <Button variant="ghost" size="icon-sm">
+                                <Pencil className="size-4" />
+                            </Button>
+                        </Link>
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleDelete(row.original)}
+                            disabled={isSelf}
+                        >
+                            <Trash2 className="size-4 text-destructive" />
                         </Button>
-                    </Link>
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => handleDelete(row.original)}
-                    >
-                        <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                </div>
-            ),
+                    </div>
+                );
+            },
         },
     ];
 
@@ -172,62 +187,48 @@ export default function ClientsIndex({ clients, filters }: Props) {
             header={
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Klien
+                        Pengguna
                     </h2>
-                    <Link href="/clients/create">
+                    <Link href="/users/create">
                         <Button>
                             <Plus className="mr-2 size-4" />
-                            Tambah Klien
+                            Tambah User
                         </Button>
                     </Link>
                 </div>
             }
         >
-            <Head title="Klien" />
+            <Head title="Pengguna" />
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Klien</CardTitle>
+                    <CardTitle>Daftar Pengguna</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Filters */}
+                    {/* Search */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                             <Input
-                                placeholder="Cari nama atau NPWP..."
+                                placeholder="Cari nama atau email..."
                                 value={search}
                                 onChange={(e) => handleSearch(e.target.value)}
                                 className="pl-9"
                             />
                         </div>
-                        <Select
-                            value={statusFilter || 'all'}
-                            onValueChange={(value) => handleStatusFilter(value ?? 'all')}
-                            items={{ all: 'Semua Status', '1': 'Aktif', '0': 'Nonaktif' }}
-                        >
-                            <SelectTrigger className="w-full sm:w-[160px]">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Status</SelectItem>
-                                <SelectItem value="1">Aktif</SelectItem>
-                                <SelectItem value="0">Nonaktif</SelectItem>
-                            </SelectContent>
-                        </Select>
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={clients.data} />
+                    <DataTable columns={columns} data={users.data} />
 
                     {/* Server-side Pagination */}
-                    {clients.last_page > 1 && (
+                    {users.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {clients.from}–{clients.to} dari {clients.total} data
+                                Menampilkan {users.from}–{users.to} dari {users.total} data
                             </p>
                             <div className="hidden items-center gap-2 sm:flex">
-                                {clients.links.map((link, index) => (
+                                {users.links.map((link, index) => (
                                     <Button
                                         key={index}
                                         variant={link.active ? 'default' : 'outline'}
@@ -248,24 +249,24 @@ export default function ClientsIndex({ clients, filters }: Props) {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!clients.links[0]?.url}
+                                    disabled={!users.links[0]?.url}
                                     onClick={() => {
-                                        if (clients.links[0]?.url) {
-                                            router.get(clients.links[0].url, {}, { preserveState: true });
+                                        if (users.links[0]?.url) {
+                                            router.get(users.links[0].url, {}, { preserveState: true });
                                         }
                                     }}
                                 >
                                     &laquo; Prev
                                 </Button>
                                 <span className="text-sm text-muted-foreground">
-                                    {clients.current_page} / {clients.last_page}
+                                    {users.current_page} / {users.last_page}
                                 </span>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!clients.links[clients.links.length - 1]?.url}
+                                    disabled={!users.links[users.links.length - 1]?.url}
                                     onClick={() => {
-                                        const lastLink = clients.links[clients.links.length - 1];
+                                        const lastLink = users.links[users.links.length - 1];
                                         if (lastLink?.url) {
                                             router.get(lastLink.url, {}, { preserveState: true });
                                         }
@@ -283,14 +284,14 @@ export default function ClientsIndex({ clients, filters }: Props) {
             <ConfirmModal
                 open={deleteModalOpen}
                 onOpenChange={setDeleteModalOpen}
-                title="Hapus Klien"
-                description={`Apakah Anda yakin ingin menghapus klien "${clientToDelete?.name}"? Tindakan ini akan melakukan soft-delete.`}
+                title="Hapus Pengguna"
+                description={`Apakah Anda yakin ingin menghapus pengguna "${userToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
                 confirmLabel="Ya, Hapus"
                 cancelLabel="Batal"
                 variant="destructive"
                 onConfirm={confirmDelete}
                 onCancel={() => {
-                    setClientToDelete(null);
+                    setUserToDelete(null);
                     setDeleteModalOpen(false);
                 }}
             />

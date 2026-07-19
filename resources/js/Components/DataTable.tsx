@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -13,6 +13,7 @@ import {
     useReactTable,
     Column,
 } from '@tanstack/react-table';
+import { useResponsiveColumns } from '@/hooks/useResponsiveColumns';
 import {
     Table,
     TableBody,
@@ -88,6 +89,15 @@ export function DataTable<TData, TValue>({
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     const [globalFilter, setGlobalFilter] = useState('');
 
+    // Compute responsive visibility based on breakpoints and column meta
+    const responsiveVisibility = useResponsiveColumns(columns);
+
+    // Merge: responsive as base, user state overrides
+    const mergedVisibility = useMemo(
+        () => ({ ...responsiveVisibility, ...columnVisibility }),
+        [responsiveVisibility, columnVisibility]
+    );
+
     const table = useReactTable({
         data,
         columns,
@@ -104,7 +114,7 @@ export function DataTable<TData, TValue>({
         state: {
             sorting,
             columnFilters,
-            columnVisibility,
+            columnVisibility: mergedVisibility,
             rowSelection,
             globalFilter,
         },
@@ -204,13 +214,13 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Table */}
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                    <TableHead key={header.id}>
                                         {header.isPlaceholder
                                             ? null
                                             : flexRender(
@@ -257,10 +267,10 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Footer: Pagination + Page Size */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {/* Left: Row count & page size */}
-                <div className="flex items-center gap-4">
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                         {totalRows > 0 ? (
                             <>
                                 {table.getState().pagination.pageIndex *
@@ -280,8 +290,8 @@ export function DataTable<TData, TValue>({
                     </p>
 
                     {/* Page Size Selector */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Tampilkan</span>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        <span className="text-xs sm:text-sm text-muted-foreground">Tampilkan</span>
                         <Select
                             value={String(table.getState().pagination.pageSize)}
                             onValueChange={(value) =>
@@ -289,7 +299,7 @@ export function DataTable<TData, TValue>({
                             }
                             items={Object.fromEntries(pageSizeOptions.map(size => [String(size), String(size)]))}
                         >
-                            <SelectTrigger className="h-8 w-[70px]">
+                            <SelectTrigger className="h-7 w-[60px] sm:h-8 sm:w-[70px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -304,45 +314,45 @@ export function DataTable<TData, TValue>({
                 </div>
 
                 {/* Right: Page navigation */}
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <span className="text-xs sm:text-sm text-muted-foreground">
                         Hal {table.getState().pagination.pageIndex + 1}/{table.getPageCount() || 1}
                     </span>
                     <Button
                         variant="outline"
                         size="icon"
-                        className="size-8"
+                        className="size-7 sm:size-8"
                         onClick={() => table.setPageIndex(0)}
                         disabled={!table.getCanPreviousPage()}
                     >
-                        <ChevronsLeft className="size-4" />
+                        <ChevronsLeft className="size-3.5 sm:size-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
-                        className="size-8"
+                        className="size-7 sm:size-8"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
                     >
-                        <ChevronLeft className="size-4" />
+                        <ChevronLeft className="size-3.5 sm:size-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
-                        className="size-8"
+                        className="size-7 sm:size-8"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
                     >
-                        <ChevronRight className="size-4" />
+                        <ChevronRight className="size-3.5 sm:size-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
-                        className="size-8"
+                        className="size-7 sm:size-8"
                         onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                         disabled={!table.getCanNextPage()}
                     >
-                        <ChevronsRight className="size-4" />
+                        <ChevronsRight className="size-3.5 sm:size-4" />
                     </Button>
                 </div>
             </div>
@@ -364,7 +374,7 @@ export function DataTableColumnHeader<TData, TValue>({
     className?: string;
 }) {
     if (!column.getCanSort()) {
-        return <div className={className}>{title}</div>;
+        return <div className={cn('truncate', className)}>{title}</div>;
     }
 
     const sorted = column.getIsSorted();
@@ -373,16 +383,16 @@ export function DataTableColumnHeader<TData, TValue>({
         <Button
             variant="ghost"
             size="sm"
-            className={cn('-ml-3 h-8 data-[state=open]:bg-accent', className)}
+            className={cn('-ml-3 h-8 data-[state=open]:bg-accent max-md:-ml-1 max-md:h-auto max-md:px-0 max-md:py-0 max-md:font-medium', className)}
             onClick={() => column.toggleSorting(sorted === 'asc')}
         >
-            {title}
+            <span className="truncate">{title}</span>
             {sorted === 'asc' ? (
-                <ArrowUp className="ml-2 size-3.5" />
+                <ArrowUp className="ml-1 size-3.5 shrink-0 max-md:size-3" />
             ) : sorted === 'desc' ? (
-                <ArrowDown className="ml-2 size-3.5" />
+                <ArrowDown className="ml-1 size-3.5 shrink-0 max-md:size-3" />
             ) : (
-                <ArrowUpDown className="ml-2 size-3.5 opacity-50" />
+                <ArrowUpDown className="ml-1 size-3.5 shrink-0 opacity-50 max-md:hidden" />
             )}
         </Button>
     );

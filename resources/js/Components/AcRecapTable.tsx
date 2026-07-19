@@ -6,6 +6,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { cn } from '@/lib/utils';
 
 export interface AcRecapRow {
     no: number;
@@ -38,11 +40,16 @@ export interface AcRecapTableProps {
 }
 
 export default function AcRecapTable({ rows, title, clientName }: AcRecapTableProps) {
+    const isMobile = useMediaQuery('(max-width: 767px)');
+
     if (rows.length === 0) {
         return null;
     }
 
     const displayTitle = title ?? 'REKAP DATA PEKERJAAN MAINTENANCE AC';
+
+    const stickyColumnClass = 'sticky left-0 z-10 bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]';
+    const mobileClass = isMobile ? 'text-xs p-1' : '';
 
     return (
         <div className="space-y-4">
@@ -53,91 +60,91 @@ export default function AcRecapTable({ rows, title, clientName }: AcRecapTablePr
                 )}
             </div>
 
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {/* First header row: grouped columns */}
                         <TableRow>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", stickyColumnClass, mobileClass)}>
                                 NO
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TANGGAL
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 LOKASI
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TYPE AC
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 MEREK
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 KAPASITAS
                             </TableHead>
-                            <TableHead colSpan={3} className="text-center border-r">
+                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
                                 SUHU BEFORE
                             </TableHead>
-                            <TableHead colSpan={3} className="text-center border-r">
+                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
                                 SUHU AFTER
                             </TableHead>
-                            <TableHead colSpan={3} className="text-center border-r">
+                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
                                 AMPERE BEFORE
                             </TableHead>
-                            <TableHead colSpan={3} className="text-center border-r">
+                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
                                 AMPERE AFTER
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TEKANAN FREON BEFORE
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center border-r align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TEKANAN FREON AFTER
                             </TableHead>
-                            <TableHead rowSpan={2} className="text-center align-middle">
+                            <TableHead rowSpan={2} className={cn("text-center align-middle", mobileClass)}>
                                 KETERANGAN
                             </TableHead>
                         </TableRow>
                         {/* Second header row: R/S/T sub-columns */}
                         <TableRow>
-                            <TableHead className="text-center border-r">R</TableHead>
-                            <TableHead className="text-center border-r">S</TableHead>
-                            <TableHead className="text-center border-r">T</TableHead>
-                            <TableHead className="text-center border-r">R</TableHead>
-                            <TableHead className="text-center border-r">S</TableHead>
-                            <TableHead className="text-center border-r">T</TableHead>
-                            <TableHead className="text-center border-r">R</TableHead>
-                            <TableHead className="text-center border-r">S</TableHead>
-                            <TableHead className="text-center border-r">T</TableHead>
-                            <TableHead className="text-center border-r">R</TableHead>
-                            <TableHead className="text-center border-r">S</TableHead>
-                            <TableHead className="text-center border-r">T</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
+                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => (
                             <TableRow key={row.no}>
-                                <TableCell className="text-center border-r">{row.no}</TableCell>
-                                <TableCell className="text-center border-r">{row.tanggal}</TableCell>
-                                <TableCell className="border-r">{row.lokasi}</TableCell>
-                                <TableCell className="text-center border-r">{row.tipe_ac}</TableCell>
-                                <TableCell className="text-center border-r">{row.merek}</TableCell>
-                                <TableCell className="text-center border-r">{row.kapasitas}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_before_r}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_before_s}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_before_t}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_after_r}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_after_s}</TableCell>
-                                <TableCell className="text-center border-r">{row.suhu_after_t}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_before_r}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_before_s}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_before_t}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_after_r}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_after_s}</TableCell>
-                                <TableCell className="text-center border-r">{row.ampere_after_t}</TableCell>
-                                <TableCell className="text-center border-r">{row.freon_before}</TableCell>
-                                <TableCell className="text-center border-r">{row.freon_after}</TableCell>
-                                <TableCell>{row.keterangan ?? '-'}</TableCell>
+                                <TableCell className={cn("text-center border-r", stickyColumnClass, mobileClass)}>{row.no}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.tanggal}</TableCell>
+                                <TableCell className={cn("border-r", mobileClass)}>{row.lokasi}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.tipe_ac}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.merek}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.kapasitas}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_r}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_s}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_t}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_r}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_s}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_t}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_r}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_s}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_t}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_r}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_s}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_t}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.freon_before}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.freon_after}</TableCell>
+                                <TableCell className={cn(mobileClass)}>{row.keterangan ?? '-'}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>

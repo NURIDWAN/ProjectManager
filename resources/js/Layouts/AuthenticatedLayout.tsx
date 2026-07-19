@@ -16,6 +16,8 @@ import {
     PanelLeft,
     ChevronUp,
     Settings,
+    UserCog,
+    Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -103,20 +105,34 @@ const navItems: NavItem[] = [
         icon: <Settings className="size-4" />,
         roles: ['admin'],
     },
+    {
+        label: 'Pengguna',
+        href: '/users',
+        icon: <UserCog className="size-4" />,
+        roles: ['admin'],
+    },
+    {
+        label: 'Role & Perizinan',
+        href: '/roles',
+        icon: <Shield className="size-4" />,
+        roles: ['admin'],
+    },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 function SidebarNav({
-    role,
+    userRoles,
     currentUrl,
     collapsed,
 }: {
-    role: 'admin' | 'technician';
+    userRoles: string[];
     currentUrl: string;
     collapsed: boolean;
 }) {
-    const filteredItems = navItems.filter((item) => item.roles.includes(role));
+    const filteredItems = navItems.filter((item) =>
+        item.roles.some((role) => userRoles.includes(role))
+    );
 
     const masterDataItems = filteredItems.filter((item) =>
         ['Klien', 'Kategori Pekerjaan', 'Jasa/Produk'].includes(item.label)
@@ -126,6 +142,9 @@ function SidebarNav({
     );
     const settingsItems = filteredItems.filter((item) =>
         ['Pengaturan'].includes(item.label)
+    );
+    const adminItems = filteredItems.filter((item) =>
+        ['Pengguna', 'Role & Perizinan'].includes(item.label)
     );
     const dashboardItem = filteredItems.find((item) => item.label === 'Dashboard');
 
@@ -203,6 +222,18 @@ function SidebarNav({
                     {settingsItems.map(renderNavItem)}
                 </>
             )}
+
+            {adminItems.length > 0 && (
+                <>
+                    <Separator className="my-2" />
+                    {!collapsed && (
+                        <p className="px-3 py-1 text-xs font-semibold uppercase text-muted-foreground">
+                            Administrasi
+                        </p>
+                    )}
+                    {adminItems.map(renderNavItem)}
+                </>
+            )}
         </nav>
     );
 }
@@ -270,6 +301,53 @@ function UserMenu({
     );
 }
 
+function BottomNav({
+    userRoles,
+    currentUrl,
+}: {
+    userRoles: string[];
+    currentUrl: string;
+}) {
+    const operationalNavItems = navItems.filter(
+        (item) =>
+            ['Laporan Kerja', 'BAP', 'BAST', 'Invoice'].includes(item.label) &&
+            item.roles.some((role) => userRoles.includes(role))
+    );
+
+    if (operationalNavItems.length === 0) return null;
+
+    const isActive = (item: NavItem) => currentUrl.startsWith(item.href);
+
+    return (
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-white lg:hidden">
+            <div className="flex h-16 items-center justify-around px-2">
+                {operationalNavItems.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                            'flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 text-xs transition-colors',
+                            isActive(item)
+                                ? 'text-primary font-semibold'
+                                : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                'flex items-center justify-center rounded-full p-1 transition-colors',
+                                isActive(item) && 'bg-primary/10'
+                            )}
+                        >
+                            {item.icon}
+                        </span>
+                        <span className="truncate">{item.label}</span>
+                    </Link>
+                ))}
+            </div>
+        </nav>
+    );
+}
+
 export default function AuthenticatedLayout({
     header,
     children,
@@ -277,6 +355,11 @@ export default function AuthenticatedLayout({
     const { auth } = usePage().props as any;
     const user = auth.user;
     const currentUrl = usePage().url;
+
+    // Extract role names from Spatie roles array, fallback to legacy role string
+    const userRoles: string[] = user.roles
+        ? user.roles.map((r: { name: string }) => r.name)
+        : [user.role];
 
     const [collapsed, setCollapsed] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -311,7 +394,7 @@ export default function AuthenticatedLayout({
                             <div className="flex h-[calc(100vh-57px)] flex-col">
                                 <div className="flex-1 overflow-y-auto">
                                     <SidebarNav
-                                        role={user.role}
+                                        userRoles={userRoles}
                                         currentUrl={currentUrl}
                                         collapsed={false}
                                     />
@@ -374,7 +457,7 @@ export default function AuthenticatedLayout({
                             {/* Navigation */}
                             <div className="flex-1 overflow-y-auto">
                                 <SidebarNav
-                                    role={user.role}
+                                    userRoles={userRoles}
                                     currentUrl={currentUrl}
                                     collapsed={collapsed}
                                 />
@@ -390,7 +473,7 @@ export default function AuthenticatedLayout({
                     {/* Main Content */}
                     <main
                         className={cn(
-                            'flex-1 transition-all duration-200 ease-in-out',
+                            'flex-1 min-w-0 transition-all duration-200 ease-in-out pb-16 lg:pb-0',
                             mainPadding
                         )}
                     >
@@ -404,6 +487,9 @@ export default function AuthenticatedLayout({
                         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
                     </main>
                 </div>
+
+                {/* Mobile Bottom Navigation - Operasional */}
+                <BottomNav userRoles={userRoles} currentUrl={currentUrl} />
             </div>
         </TooltipProvider>
     );

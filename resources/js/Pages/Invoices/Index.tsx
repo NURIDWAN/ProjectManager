@@ -139,6 +139,7 @@ export default function Index({ invoices, clients, filters }: Props) {
             id: 'bap_nomor',
             header: 'No. BAP',
             cell: ({ row }) => row.original.bap?.nomor_surat ?? '-',
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             accessorKey: 'grand_total',
@@ -158,6 +159,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                           year: 'numeric',
                       })
                     : '-',
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             accessorKey: 'status',
@@ -230,7 +232,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
                             items={{ all: 'Semua Status', draft: 'Draft', unpaid: 'Unpaid', overdue: 'Overdue', paid: 'Paid' }}
                         >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -247,7 +249,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
                             items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full sm:w-[200px]">
                                 <SelectValue placeholder="Klien" />
                             </SelectTrigger>
                             <SelectContent>
@@ -269,12 +271,14 @@ export default function Index({ invoices, clients, filters }: Props) {
 
                     {/* Server-side Pagination */}
                     {invoices.last_page > 1 && (
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
                                 Menampilkan {invoices.from}–{invoices.to} dari{' '}
                                 {invoices.total} data
                             </p>
-                            <div className="flex items-center gap-2">
+
+                            {/* Desktop pagination: all buttons */}
+                            <div className="hidden items-center gap-2 sm:flex">
                                 {invoices.links.map((link, index) => (
                                     <Button
                                         key={index}
@@ -289,6 +293,38 @@ export default function Index({ invoices, clients, filters }: Props) {
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />
                                 ))}
+                            </div>
+
+                            {/* Mobile pagination: prev/next only */}
+                            <div className="flex items-center gap-2 sm:hidden">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!invoices.links[0]?.url}
+                                    onClick={() => {
+                                        if (invoices.links[0]?.url) {
+                                            router.get(invoices.links[0].url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    &laquo; Prev
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                    {invoices.current_page} / {invoices.last_page}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!invoices.links[invoices.links.length - 1]?.url}
+                                    onClick={() => {
+                                        const lastLink = invoices.links[invoices.links.length - 1];
+                                        if (lastLink?.url) {
+                                            router.get(lastLink.url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    Next &raquo;
+                                </Button>
                             </div>
                         </div>
                     )}

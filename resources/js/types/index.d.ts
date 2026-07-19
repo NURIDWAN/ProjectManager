@@ -1,9 +1,22 @@
+export interface Permission {
+    id: number;
+    name: string;
+}
+
+export interface Role {
+    id: number;
+    name: string;
+    permissions_count?: number;
+    permissions?: Permission[];
+}
+
 export interface User {
     id: number;
     name: string;
     email: string;
     email_verified_at?: string;
     role: 'admin' | 'technician';
+    roles?: Role[];
 }
 
 export interface Bast {

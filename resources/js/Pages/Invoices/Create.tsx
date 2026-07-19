@@ -161,15 +161,15 @@ export default function Create({ clients, services, settings }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                         <Link href="/invoices">
                             <Button variant="ghost" size="icon-sm"><ArrowLeft className="size-4" /></Button>
                         </Link>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">Buat Invoice</h2>
+                        <h2 className="text-lg sm:text-xl font-semibold leading-tight text-gray-800 truncate">Buat Invoice</h2>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button onClick={handleSubmit} disabled={processing || items.length === 0 || !selectedClientId}>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" onClick={handleSubmit} disabled={processing || items.length === 0 || !selectedClientId} className="text-xs sm:text-sm">
                             {processing ? 'Menyimpan...' : 'Simpan & Kirim'}
                         </Button>
                     </div>
@@ -183,30 +183,30 @@ export default function Create({ clients, services, settings }: Props) {
                     {/* Invoice Document Layout */}
                     <div className="rounded-lg border bg-white shadow-sm">
                         {/* Top Section: Logo + FAKTUR title */}
-                        <div className="flex items-start justify-between border-b p-6 pb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between border-b p-4 sm:p-6 pb-4 gap-3">
                             {/* Company Logo & Info */}
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-3 sm:gap-4">
                                 {settings.company_logo ? (
-                                    <img src={`/storage/${settings.company_logo}`} alt="Logo" className="h-14 w-auto object-contain" />
+                                    <img src={`/storage/${settings.company_logo}`} alt="Logo" className="h-10 sm:h-14 w-auto object-contain" />
                                 ) : (
-                                    <div className="flex h-14 w-14 items-center justify-center rounded bg-gray-100 text-xs text-gray-400">Logo</div>
+                                    <div className="flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center rounded bg-gray-100 text-xs text-gray-400 shrink-0">Logo</div>
                                 )}
-                                <div>
-                                    <p className="text-lg font-bold uppercase">{settings.company_name || 'PERUSAHAAN'}</p>
-                                    <p className="text-xs text-gray-500">{settings.company_address || ''}</p>
-                                    {settings.company_address_2 && <p className="text-xs text-gray-500">{settings.company_address_2}</p>}
+                                <div className="min-w-0">
+                                    <p className="text-sm sm:text-lg font-bold uppercase truncate">{settings.company_name || 'PERUSAHAAN'}</p>
+                                    <p className="text-xs text-gray-500 truncate">{settings.company_address || ''}</p>
+                                    {settings.company_address_2 && <p className="text-xs text-gray-500 truncate">{settings.company_address_2}</p>}
                                     {settings.company_phone && <p className="text-xs text-gray-500">Telp. {settings.company_phone}</p>}
                                 </div>
                             </div>
                             {/* FAKTUR Title */}
-                            <div className="text-right">
-                                <h1 className="text-3xl font-bold text-gray-700">INVOICE</h1>
+                            <div className="text-left sm:text-right shrink-0">
+                                <h1 className="text-xl sm:text-3xl font-bold text-gray-700">INVOICE</h1>
                                 <p className="mt-1 text-xs text-gray-400"># (auto-generated)</p>
                             </div>
                         </div>
 
                         {/* Client + Meta Section */}
-                        <div className="grid grid-cols-2 gap-6 border-b p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 border-b p-4 sm:p-6">
                             {/* Left: Client */}
                             <div className="space-y-3">
                                 <div>
@@ -234,40 +234,87 @@ export default function Create({ clients, services, settings }: Props) {
                             </div>
                             {/* Right: Date & Due */}
                             <div className="space-y-2">
-                                <div className="grid grid-cols-[100px_1fr] items-center gap-2">
+                                <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
                                     <span className="text-sm text-gray-500">Tanggal</span>
                                     <span className="text-sm font-medium text-right">{today}</span>
                                 </div>
-                                <div className="grid grid-cols-[100px_1fr] items-center gap-2">
+                                <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
                                     <span className="text-sm text-gray-500">Syarat pembayaran</span>
                                     <span className="text-sm text-right text-gray-400">-</span>
                                 </div>
-                                <div className="grid grid-cols-[100px_1fr] items-center gap-2">
+                                <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
                                     <span className="text-sm text-gray-500">Tanggal jatuh</span>
                                     <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                                        className="h-8 text-sm text-right border-dashed" />
+                                        className="h-8 text-sm text-right border-dashed w-auto" />
                                 </div>
                             </div>
                         </div>
 
                         {/* Items Table */}
-                        <div className="p-6 border-b">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-emerald-600 text-white text-xs">
-                                        <th className="px-3 py-2 text-left font-semibold rounded-tl">Barang</th>
-                                        <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
-                                        <th className="px-3 py-2 text-right font-semibold w-[120px]">Kecepatan</th>
-                                        <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
-                                        <th className="w-[36px]"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.map((item, index) => (
-                                        <tr key={index} className="border-b border-gray-100 group">
-                                            <td className="py-2 pr-2">
+                        <div className="p-4 sm:p-6 border-b">
+                            {/* Desktop Table */}
+                            <div className="hidden sm:block">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-emerald-600 text-white text-xs">
+                                            <th className="px-3 py-2 text-left font-semibold rounded-tl">Barang</th>
+                                            <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
+                                            <th className="px-3 py-2 text-right font-semibold w-[120px]">Kecepatan</th>
+                                            <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
+                                            <th className="w-[36px]"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {items.map((item, index) => (
+                                            <tr key={index} className="border-b border-gray-100 group">
+                                                <td className="py-2 pr-2">
+                                                    <Select value={item.service_id ? String(item.service_id) : undefined} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries(services.map(s => [String(s.id), s.name]))}>
+                                                        <SelectTrigger className="w-full border-0 shadow-none h-8 text-sm bg-transparent hover:bg-gray-50">
+                                                            <SelectValue placeholder="Pilih barang" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {services.map((svc) => (
+                                                                <SelectItem key={svc.id} value={String(svc.id)} label={svc.name}>{svc.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </td>
+                                                <td className="py-2 px-1">
+                                                    <Input type="number" min="0.01" step="1" value={item.quantity}
+                                                        onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                                                        className="h-8 text-sm text-center border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
+                                                </td>
+                                                <td className="py-2 px-1">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-xs text-gray-400">Rp</span>
+                                                        <Input type="number" min="0" step="1000" value={item.unit_price}
+                                                            onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                                                            className="h-8 text-sm text-right border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
+                                                    </div>
+                                                </td>
+                                                <td className="py-2 px-2 text-right text-sm font-medium">
+                                                    {formatRupiah(calculations.lineTotals[index] ?? 0)}
+                                                </td>
+                                                <td className="py-2">
+                                                    <button type="button" onClick={() => handleRemoveItem(index)}
+                                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:text-red-600">
+                                                        <Trash2 className="size-3.5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Card Layout */}
+                            <div className="sm:hidden space-y-3">
+                                {items.map((item, index) => (
+                                    <div key={index} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
                                                 <Select value={item.service_id ? String(item.service_id) : undefined} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries(services.map(s => [String(s.id), s.name]))}>
-                                                    <SelectTrigger className="w-full border-0 shadow-none h-8 text-sm bg-transparent hover:bg-gray-50">
+                                                    <SelectTrigger className="w-full h-8 text-sm border-dashed">
                                                         <SelectValue placeholder="Pilih barang" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -276,33 +323,33 @@ export default function Create({ clients, services, settings }: Props) {
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                            </td>
-                                            <td className="py-2 px-1">
+                                            </div>
+                                            <button type="button" onClick={() => handleRemoveItem(index)}
+                                                className="p-1.5 text-red-400 hover:text-red-600 shrink-0">
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-xs text-gray-500">Kuantitas</label>
                                                 <Input type="number" min="0.01" step="1" value={item.quantity}
                                                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                                    className="h-8 text-sm text-center border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
-                                            </td>
-                                            <td className="py-2 px-1">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-xs text-gray-400">Rp</span>
-                                                    <Input type="number" min="0" step="1000" value={item.unit_price}
-                                                        onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                                                        className="h-8 text-sm text-right border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
-                                                </div>
-                                            </td>
-                                            <td className="py-2 px-2 text-right text-sm font-medium">
-                                                {formatRupiah(calculations.lineTotals[index] ?? 0)}
-                                            </td>
-                                            <td className="py-2">
-                                                <button type="button" onClick={() => handleRemoveItem(index)}
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:text-red-600">
-                                                    <Trash2 className="size-3.5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                    className="h-8 text-sm text-center" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500">Harga</label>
+                                                <Input type="number" min="0" step="1000" value={item.unit_price}
+                                                    onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                                                    className="h-8 text-sm text-right" />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                                            <span className="text-xs text-gray-500">Jumlah</span>
+                                            <span className="text-sm font-semibold">{formatRupiah(calculations.lineTotals[index] ?? 0)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
 
                             <button type="button" onClick={handleAddItem}
                                 className="mt-3 flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium">
@@ -310,8 +357,8 @@ export default function Create({ clients, services, settings }: Props) {
                             </button>
                         </div>
 
-                        {/* Bottom: Notes + Totals side by side */}
-                        <div className="grid grid-cols-2 gap-6 p-6 border-b">
+                        {/* Bottom: Notes + Totals */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6 border-b">
                             {/* Left: Notes & Terms */}
                             <div className="space-y-4">
                                 <div>
@@ -364,7 +411,7 @@ export default function Create({ clients, services, settings }: Props) {
                                             <span className="text-xs text-gray-400">Rp</span>
                                             <Input type="number" min="0" step="1000" value={discountTotal}
                                                 onChange={(e) => setDiscountTotal(parseFloat(e.target.value) || 0)}
-                                                className="w-28 h-7 text-sm text-right border-dashed" />
+                                                className="w-24 sm:w-28 h-7 text-sm text-right border-dashed" />
                                         </div>
                                     </div>
                                 )}
@@ -376,7 +423,7 @@ export default function Create({ clients, services, settings }: Props) {
                                             <span className="text-sm text-gray-600">Pajak</span>
                                             <Input type="number" min="0" max="100" step="0.5" value={taxPercent}
                                                 onChange={(e) => setTaxPercent(parseFloat(e.target.value) || 0)}
-                                                className="w-14 h-7 text-xs text-center border-dashed" />
+                                                className="w-12 sm:w-14 h-7 text-xs text-center border-dashed" />
                                             <span className="text-xs text-gray-400">%</span>
                                             <button type="button" onClick={() => { setShowTax(false); setTaxPercent(0); }}
                                                 className="text-red-400 hover:text-red-600"><Trash2 className="size-3" /></button>
@@ -397,7 +444,7 @@ export default function Create({ clients, services, settings }: Props) {
                                             <span className="text-xs text-gray-400">Rp</span>
                                             <Input type="number" min="0" step="1000" value={shippingCost}
                                                 onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
-                                                className="w-28 h-7 text-sm text-right border-dashed" />
+                                                className="w-24 sm:w-28 h-7 text-sm text-right border-dashed" />
                                         </div>
                                     </div>
                                 )}
@@ -412,19 +459,19 @@ export default function Create({ clients, services, settings }: Props) {
 
                                 {/* Amount Paid */}
                                 <div className="flex items-center justify-between gap-2 pt-2">
-                                    <span className="text-sm text-gray-600">Jumlah yang dibayarkan</span>
+                                    <span className="text-sm text-gray-600">Jumlah dibayar</span>
                                     <div className="flex items-center gap-1">
                                         <span className="text-xs text-gray-400">Rp</span>
                                         <Input type="number" min="0" step="1000" value={amountPaid}
                                             onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                                            className="w-28 h-7 text-sm text-right border-dashed" />
+                                            className="w-24 sm:w-28 h-7 text-sm text-right border-dashed" />
                                     </div>
                                 </div>
 
                                 {/* Balance Due */}
                                 <div className="border-t pt-2 mt-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-bold">Keseimbangan karena</span>
+                                        <span className="text-sm font-bold">Sisa tagihan</span>
                                         <span className="text-sm font-bold">{formatRupiah(calculations.balanceDue)}</span>
                                     </div>
                                 </div>

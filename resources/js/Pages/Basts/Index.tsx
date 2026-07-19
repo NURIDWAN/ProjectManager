@@ -107,7 +107,7 @@ export default function Index({ basts, clients, filters }: Props) {
             cell: ({ row }) =>
                 new Date(row.original.tanggal).toLocaleDateString('id-ID', {
                     day: '2-digit',
-                    month: 'long',
+                    month: 'short',
                     year: 'numeric',
                 }),
         },
@@ -117,6 +117,7 @@ export default function Index({ basts, clients, filters }: Props) {
                 <DataTableColumnHeader column={column} title="BAP Nomor Surat" />
             ),
             accessorFn: (row) => row.bap?.nomor_surat ?? '-',
+            meta: { responsiveHidden: 'mobile' },
         },
         {
             id: 'actions',
@@ -179,7 +180,7 @@ export default function Index({ basts, clients, filters }: Props) {
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
                             items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full sm:w-[200px]">
                                 <SelectValue placeholder="Klien" />
                             </SelectTrigger>
                             <SelectContent>
@@ -201,12 +202,14 @@ export default function Index({ basts, clients, filters }: Props) {
 
                     {/* Server-side Pagination */}
                     {basts.last_page > 1 && (
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
                                 Menampilkan {basts.from}–{basts.to} dari{' '}
                                 {basts.total} data
                             </p>
-                            <div className="flex items-center gap-2">
+
+                            {/* Desktop pagination: all buttons */}
+                            <div className="hidden items-center gap-2 sm:flex">
                                 {basts.links.map((link, index) => (
                                     <Button
                                         key={index}
@@ -221,6 +224,38 @@ export default function Index({ basts, clients, filters }: Props) {
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />
                                 ))}
+                            </div>
+
+                            {/* Mobile pagination: prev/next only */}
+                            <div className="flex items-center gap-2 sm:hidden">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!basts.links[0]?.url}
+                                    onClick={() => {
+                                        if (basts.links[0]?.url) {
+                                            router.get(basts.links[0].url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    &laquo; Prev
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                    {basts.current_page} / {basts.last_page}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!basts.links[basts.links.length - 1]?.url}
+                                    onClick={() => {
+                                        const lastLink = basts.links[basts.links.length - 1];
+                                        if (lastLink?.url) {
+                                            router.get(lastLink.url, {}, { preserveState: true });
+                                        }
+                                    }}
+                                >
+                                    Next &raquo;
+                                </Button>
                             </div>
                         </div>
                     )}

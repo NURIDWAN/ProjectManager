@@ -8,7 +8,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\JobCategoryController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -76,6 +78,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/company', [CompanySettingController::class, 'edit'])->name('settings.company');
         Route::post('settings/company', [CompanySettingController::class, 'update'])->name('settings.company.update');
         Route::delete('settings/company/logo', [CompanySettingController::class, 'removeLogo'])->name('settings.company.remove-logo');
+    });
+
+    // User & Role Management (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::resource('users', UserController::class)->except(['show']);
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::get('roles/{role}', [RoleController::class, 'show'])->name('roles.show');
+        Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::put('roles/{role}/name', [RoleController::class, 'updateName'])->name('roles.update.name');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
 });
 
