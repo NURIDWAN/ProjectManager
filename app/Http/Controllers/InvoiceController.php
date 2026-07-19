@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreInvoiceRequest;
-use App\Models\Bap;
 use App\Models\Client;
+use App\Models\CompanySetting;
 use App\Models\Invoice;
 use App\Models\Service;
-use App\Models\WorkReport;
 use App\Services\InvoiceCalculationServiceInterface;
 use App\Services\InvoiceNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;
@@ -60,35 +59,18 @@ class InvoiceController extends Controller
 
     /**
      * Show the form for creating a new invoice.
-     * Auto-populates items from services related to the BAP's work report categories.
+     * Linked directly to a client (not BAP).
      */
     public function create(Request $request): Response
     {
-        // Get approved BAPs that don't have an invoice yet
-        $baps = Bap::with('client')
-            ->where('status', Bap::STATUS_APPROVED)
-            ->whereDoesntHave('invoice')
-            ->latest()
-            ->get();
-
-        $suggestedItems = [];
-
-        // If a bap_id is provided, auto-populate items
-        if ($bapId = $request->input('bap_id')) {
-            $bap = Bap::find($bapId);
-
-            if ($bap) {
-                $suggestedItems = $this->getAutoPopulatedItems($bap);
-            }
-        }
-
+        $clients = Client::select('id', 'name', 'address', 'pic_name', 'npwp')->orderBy('name')->get();
         $services = Service::active()->orderBy('name')->get();
+        $settings = CompanySetting::allSettings();
 
         return Inertia::render('Invoices/Create', [
-            'baps' => $baps,
-            'suggestedItems' => $suggestedItems,
+            'clients' => $clients,
             'services' => $services,
-            'selectedBapId' => $request->input('bap_id', ''),
+            'settings' => $settings,
         ]);
     }
 
@@ -97,8 +79,6 @@ class InvoiceController extends Controller
      */
     public function store(StoreInvoiceRequest $request): RedirectResponse
     {
-        $bap = Bap::findOrFail($request->input('bap_id'));
-
         $invoiceNumber = $this->numberGenerator->generate(Carbon::now());
 
         // Calculate totals from items
@@ -115,21 +95,31 @@ class InvoiceController extends Controller
         }
 
         $subtotal = $this->calculationService->calculateSubtotal($lineTotals);
-        $discountTotal = 0; // No overall discount at this level for now
-        $ppn = $this->calculationService->calculatePpn($subtotal, $discountTotal);
-        $grandTotal = $this->calculationService->calculateGrandTotal($subtotal, $discountTotal, $ppn);
+        $discountTotal = (float) ($request->input('discount_total') ?? 0);
+        $taxPercent = (float) ($request->input('tax_percent') ?? 11);
+        $shippingCost = (float) ($request->input('shipping_cost') ?? 0);
+
+        // Custom tax calculation: ppn = (subtotal - discountTotal) * (taxPercent / 100)
+        $ppn = round(($subtotal - $discountTotal) * ($taxPercent / 100), 2);
+
+        // Grand total = subtotal - discount + tax + shipping
+        $grandTotal = round($subtotal - $discountTotal + $ppn + $shippingCost, 2);
 
         $invoice = Invoice::create([
             'invoice_number' => $invoiceNumber,
-            'bap_id' => $bap->id,
-            'client_id' => $bap->client_id,
+            'bap_id' => null,
+            'client_id' => $request->input('client_id'),
             'subtotal' => $subtotal,
             'discount_total' => $discountTotal,
+            'tax_percent' => $taxPercent,
             'ppn' => $ppn,
+            'shipping_cost' => $shippingCost,
             'grand_total' => $grandTotal,
             'status' => Invoice::STATUS_DRAFT,
-            'due_date' => null,
+            'due_date' => $request->input('due_date'),
             'paid_at' => null,
+            'notes' => $request->input('notes'),
+            'terms' => $request->input('terms'),
         ]);
 
         // Create invoice items
@@ -157,6 +147,98 @@ class InvoiceController extends Controller
         return Inertia::render('Invoices/Show', [
             'invoice' => $invoice,
         ]);
+    }
+
+    /**
+     * Show the form for editing the specified invoice.
+     */
+    public function edit($id): Response
+    {
+        $invoice = Invoice::with(['client', 'items.service'])->findOrFail($id);
+
+        $clients = Client::select('id', 'name', 'address', 'pic_name', 'npwp')->orderBy('name')->get();
+        $services = Service::active()->orderBy('name')->get();
+        $settings = CompanySetting::allSettings();
+
+        return Inertia::render('Invoices/Edit', [
+            'invoice' => $invoice,
+            'clients' => $clients,
+            'services' => $services,
+            'settings' => $settings,
+        ]);
+    }
+
+    /**
+     * Update the specified invoice in storage.
+     */
+    public function update(StoreInvoiceRequest $request, $id): RedirectResponse
+    {
+        $invoice = Invoice::findOrFail($id);
+
+        // Calculate totals from items
+        $items = $request->input('items', []);
+        $lineTotals = [];
+
+        foreach ($items as $item) {
+            $lineTotal = $this->calculationService->calculateLineTotal(
+                (float) $item['quantity'],
+                (float) $item['unit_price'],
+                (float) ($item['discount_percent'] ?? 0)
+            );
+            $lineTotals[] = $lineTotal;
+        }
+
+        $subtotal = $this->calculationService->calculateSubtotal($lineTotals);
+        $discountTotal = (float) ($request->input('discount_total') ?? 0);
+        $taxPercent = (float) ($request->input('tax_percent') ?? 11);
+        $shippingCost = (float) ($request->input('shipping_cost') ?? 0);
+
+        $ppn = round(($subtotal - $discountTotal) * ($taxPercent / 100), 2);
+        $grandTotal = round($subtotal - $discountTotal + $ppn + $shippingCost, 2);
+
+        $invoice->update([
+            'client_id' => $request->input('client_id'),
+            'subtotal' => $subtotal,
+            'discount_total' => $discountTotal,
+            'tax_percent' => $taxPercent,
+            'ppn' => $ppn,
+            'shipping_cost' => $shippingCost,
+            'grand_total' => $grandTotal,
+            'due_date' => $request->input('due_date'),
+            'notes' => $request->input('notes'),
+            'terms' => $request->input('terms'),
+        ]);
+
+        // Sync items: delete existing and recreate
+        $invoice->items()->delete();
+
+        foreach ($items as $index => $item) {
+            $invoice->items()->create([
+                'service_id' => $item['service_id'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                'discount_percent' => $item['discount_percent'] ?? 0,
+                'line_total' => $lineTotals[$index],
+            ]);
+        }
+
+        return Redirect::route('invoices.show', $invoice->id)
+            ->with('success', 'Invoice berhasil diperbarui.');
+    }
+
+    /**
+     * Remove the specified invoice from storage.
+     */
+    public function destroy($id): RedirectResponse
+    {
+        $invoice = Invoice::findOrFail($id);
+
+        // Cascade: delete items first, then invoice
+        $invoice->items()->delete();
+        $invoice->delete();
+
+        return Redirect::route('invoices.index')
+            ->with('success', 'Invoice berhasil dihapus.');
     }
 
     /**
@@ -213,40 +295,22 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Export invoice as PDF.
+     * Return invoice PDF inline for the application preview.
      */
-    public function exportPdf($id)
+    public function previewPdf($id)
     {
-        $invoice = Invoice::with(['client', 'bap', 'items.service'])->findOrFail($id);
+        $invoice = Invoice::findOrFail($id);
 
         return $this->pdfExportService->generateInvoicePdf($invoice->id);
     }
 
     /**
-     * Auto-populate items from active services related to the BAP's work report categories.
+     * Download invoice as PDF.
      */
-    private function getAutoPopulatedItems(Bap $bap): array
+    public function exportPdf($id)
     {
-        // Get work reports from BAP
-        $workReportIds = $bap->work_report_ids ?? [];
-        $workReports = WorkReport::whereIn('id', $workReportIds)->get();
+        $invoice = Invoice::findOrFail($id);
 
-        // Get unique category IDs from work reports
-        $categoryIds = $workReports->pluck('category_id')->unique()->values()->toArray();
-
-        // Get active services - since there's no direct pivot between categories and services,
-        // we return all active services for the admin to select/adjust
-        $services = Service::active()->orderBy('name')->get();
-
-        return $services->map(function ($service) {
-            return [
-                'service_id' => $service->id,
-                'service_name' => $service->name,
-                'unit' => $service->unit,
-                'quantity' => 1,
-                'unit_price' => (float) $service->price,
-                'discount_percent' => 0,
-            ];
-        })->toArray();
+        return $this->pdfExportService->generateInvoicePdf($invoice->id, true);
     }
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { FileUpload } from '@/Components/FileUpload';
+import { FileUpload, PhotoWithCaption } from '@/Components/FileUpload';
+import AcMeasurementForm, { AcMeasurementEntry, AcEntryPhotos, EMPTY_PHOTOS } from '@/Components/AcMeasurementForm';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -24,29 +25,82 @@ import { ArrowLeft, Save, Send, ClipboardList, Camera } from 'lucide-react';
 
 interface Props {
     clients: { id: number; name: string }[];
-    categories: { id: number; name: string }[];
+    categories: { id: number; name: string; preset_identifier: string | null }[];
 }
 
 export default function Create({ clients, categories }: Props) {
     const [clientId, setClientId] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [description, setDescription] = useState('');
-    const [beforePhotos, setBeforePhotos] = useState<File[]>([]);
-    const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
+    const [area, setArea] = useState('');
+    const [beforePhotos, setBeforePhotos] = useState<PhotoWithCaption[]>([]);
+    const [afterPhotos, setAfterPhotos] = useState<PhotoWithCaption[]>([]);
+    const [presetData, setPresetData] = useState<AcMeasurementEntry[]>([]);
+    const [acPhotos, setAcPhotos] = useState<AcEntryPhotos[]>([]);
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const selectedCategory = categories.find((c) => String(c.id) === categoryId);
+    const isAcCategory = selectedCategory?.preset_identifier === 'ac_maintenance';
+
+    const handleCategoryChange = (newValue: string | null) => {
+        const newCategory = categories.find((c) => String(c.id) === newValue);
+        const wasAcCategory = isAcCategory;
+        const willBeAcCategory = newCategory?.preset_identifier === 'ac_maintenance';
+
+        // If changing away from AC category and there's data, confirm before clearing
+        if (wasAcCategory && !willBeAcCategory && presetData.length > 0) {
+            const hasData = presetData.some((entry) =>
+                entry.lokasi || entry.tipe_ac || entry.merek || entry.kapasitas !== ''
+            );
+            if (hasData) {
+                const confirmed = window.confirm(
+                    'Data pengukuran AC yang sudah diisi akan dihapus. Lanjutkan?'
+                );
+                if (!confirmed) {
+                    return; // Keep the current category
+                }
+                setPresetData([]);
+                setAcPhotos([]);
+            }
+        }
+
+        setCategoryId(newValue ?? '');
+    };
 
     const buildFormData = () => {
         const formData = new FormData();
         if (clientId) formData.append('client_id', clientId);
         if (categoryId) formData.append('category_id', categoryId);
         if (description) formData.append('description', description);
+        if (area) formData.append('area', area);
 
-        beforePhotos.forEach((file) => {
-            formData.append('before_photos[]', file);
+        // Include preset_data as JSON when AC category is selected
+        if (isAcCategory && presetData.length > 0) {
+            formData.append('preset_data', JSON.stringify(presetData));
+
+            // Include per-unit AC photos with captions
+            acPhotos.forEach((entryPhotos, entryIndex) => {
+                if (entryPhotos) {
+                    entryPhotos.before.forEach((photo, photoIdx) => {
+                        formData.append(`ac_photos_before_${entryIndex}[]`, photo.file);
+                        formData.append(`ac_captions_before_${entryIndex}[]`, photo.caption);
+                    });
+                    entryPhotos.after.forEach((photo, photoIdx) => {
+                        formData.append(`ac_photos_after_${entryIndex}[]`, photo.file);
+                        formData.append(`ac_captions_after_${entryIndex}[]`, photo.caption);
+                    });
+                }
+            });
+        }
+
+        beforePhotos.forEach((photo, index) => {
+            formData.append('before_photos[]', photo.file);
+            formData.append(`before_captions[${index}]`, photo.caption);
         });
-        afterPhotos.forEach((file) => {
-            formData.append('after_photos[]', file);
+        afterPhotos.forEach((photo, index) => {
+            formData.append('after_photos[]', photo.file);
+            formData.append(`after_captions[${index}]`, photo.caption);
         });
 
         return formData;
@@ -84,7 +138,8 @@ export default function Create({ clients, categories }: Props) {
         if (!clientId) validationErrors.client_id = 'Klien wajib dipilih.';
         if (!categoryId) validationErrors.category_id = 'Kategori wajib dipilih.';
         if (!description.trim()) validationErrors.description = 'Deskripsi wajib diisi.';
-        if (afterPhotos.length === 0) validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
+        // AC category uses per-unit photos, so skip global after_photos requirement
+        if (!isAcCategory && afterPhotos.length === 0) validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -133,7 +188,7 @@ export default function Create({ clients, categories }: Props) {
         >
             <Head title="Buat Laporan Kerja" />
 
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-0">
                 <form className="space-y-6">
                     {/* Detail Pekerjaan */}
                     <Card>
@@ -152,7 +207,7 @@ export default function Create({ clients, categories }: Props) {
                             {/* Klien */}
                             <div className="space-y-2">
                                 <Label htmlFor="client_id">Klien</Label>
-                                <Select value={clientId} onValueChange={(v) => setClientId(v ?? '')}>
+                                <Select value={clientId} onValueChange={(v) => setClientId(v ?? '')} items={Object.fromEntries(clients.map(c => [String(c.id), c.name]))}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih klien" />
                                     </SelectTrigger>
@@ -161,6 +216,7 @@ export default function Create({ clients, categories }: Props) {
                                             <SelectItem
                                                 key={client.id}
                                                 value={String(client.id)}
+                                                label={client.name}
                                             >
                                                 {client.name}
                                             </SelectItem>
@@ -175,7 +231,7 @@ export default function Create({ clients, categories }: Props) {
                             {/* Kategori */}
                             <div className="space-y-2">
                                 <Label htmlFor="category_id">Kategori Pekerjaan</Label>
-                                <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
+                                <Select value={categoryId} onValueChange={handleCategoryChange} items={Object.fromEntries(categories.map(c => [String(c.id), c.name]))}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih kategori" />
                                     </SelectTrigger>
@@ -184,6 +240,7 @@ export default function Create({ clients, categories }: Props) {
                                             <SelectItem
                                                 key={cat.id}
                                                 value={String(cat.id)}
+                                                label={cat.name}
                                             >
                                                 {cat.name}
                                             </SelectItem>
@@ -211,10 +268,36 @@ export default function Create({ clients, categories }: Props) {
                                     <p className="text-sm text-destructive">{errors.description}</p>
                                 )}
                             </div>
+
+                            {/* Area */}
+                            <div className="space-y-2">
+                                <Label htmlFor="area">Area</Label>
+                                <Input
+                                    id="area"
+                                    value={area}
+                                    onChange={(e) => setArea(e.target.value)}
+                                    placeholder="Contoh: Area Floor (GREE 20 PK)"
+                                />
+                                {errors.area && (
+                                    <p className="text-sm text-destructive">{errors.area}</p>
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
 
-                    {/* Dokumentasi Foto */}
+                    {/* AC Measurement Form - conditionally rendered */}
+                    {isAcCategory && (
+                        <AcMeasurementForm
+                            entries={presetData}
+                            onChange={setPresetData}
+                            errors={errors}
+                            photos={acPhotos}
+                            onPhotosChange={setAcPhotos}
+                        />
+                    )}
+
+                    {/* Dokumentasi Foto - hidden for AC category since photos are per unit */}
+                    {!isAcCategory && (
                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-2">
@@ -222,7 +305,7 @@ export default function Create({ clients, categories }: Props) {
                                 <div>
                                     <CardTitle className="text-base">Dokumentasi Foto</CardTitle>
                                     <CardDescription>
-                                        Upload foto sebelum dan sesudah pekerjaan
+                                        Upload foto sebelum dan sesudah pekerjaan dengan keterangan
                                     </CardDescription>
                                 </div>
                             </div>
@@ -233,7 +316,9 @@ export default function Create({ clients, categories }: Props) {
                                 <Label>Foto Sebelum</Label>
                                 <FileUpload
                                     label="Upload foto sebelum"
-                                    onChange={setBeforePhotos}
+                                    withCaption
+                                    onPhotosChange={setBeforePhotos}
+                                    onChange={() => {}}
                                     error={errors.before_photos}
                                 />
                             </div>
@@ -243,12 +328,15 @@ export default function Create({ clients, categories }: Props) {
                                 <Label>Foto Sesudah</Label>
                                 <FileUpload
                                     label="Upload foto sesudah"
-                                    onChange={setAfterPhotos}
+                                    withCaption
+                                    onPhotosChange={setAfterPhotos}
+                                    onChange={() => {}}
                                     error={errors.after_photos}
                                 />
                             </div>
                         </CardContent>
                     </Card>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">

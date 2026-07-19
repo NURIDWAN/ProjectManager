@@ -12,7 +12,7 @@ interface PdfExportServiceInterface
      * @param int $bapId
      * @return \Illuminate\Http\Response PDF download response
      */
-    public function generateBapPdf(int $bapId): Response;
+    public function generateBapPdf(int $bapId, bool $download = false): Response;
 
     /**
      * Generate PDF for an Invoice document.
@@ -20,5 +20,13 @@ interface PdfExportServiceInterface
      * @param int $invoiceId
      * @return \Illuminate\Http\Response PDF download response
      */
-    public function generateInvoicePdf(int $invoiceId): Response;
+    public function generateInvoicePdf(int $invoiceId, bool $download = false): Response;
+
+    /**
+     * Generate PDF for a BAST document.
+     *
+     * @param int $bastId
+     * @return \Symfony\Component\HttpFoundation\Response PDF download response
+     */
+    public function generateBastPdf(int $bastId, bool $download = false): \Symfony\Component\HttpFoundation\Response;
 }

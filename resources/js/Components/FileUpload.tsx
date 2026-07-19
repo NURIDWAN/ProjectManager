@@ -1,7 +1,22 @@
 import { useCallback, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Upload, X, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+export interface PhotoWithCaption {
+    file: File;
+    caption: string;
+    previewUrl: string;
+}
+
+export interface ExistingPhoto {
+    id: number;
+    photo_path: string;
+    caption: string | null;
+    photo_url: string;
+    sort_order: number;
+}
 
 interface FileUploadProps {
     label?: string;
@@ -9,8 +24,13 @@ interface FileUploadProps {
     multiple?: boolean;
     maxSize?: number; // in MB
     onChange: (files: File[]) => void;
+    onPhotosChange?: (photos: PhotoWithCaption[]) => void;
     existingFiles?: string[];
+    existingPhotos?: ExistingPhoto[];
     onRemoveExisting?: (path: string) => void;
+    onRemoveExistingPhoto?: (id: number) => void;
+    onUpdateExistingCaption?: (id: number, caption: string) => void;
+    withCaption?: boolean;
     error?: string;
     className?: string;
 }
@@ -21,13 +41,18 @@ export function FileUpload({
     multiple = true,
     maxSize = 2,
     onChange,
+    onPhotosChange,
     existingFiles = [],
+    existingPhotos = [],
     onRemoveExisting,
+    onRemoveExistingPhoto,
+    onUpdateExistingCaption,
+    withCaption = false,
     error,
     className,
 }: FileUploadProps) {
     const [dragActive, setDragActive] = useState(false);
-    const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
+    const [previews, setPreviews] = useState<PhotoWithCaption[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleFiles = useCallback(
@@ -48,19 +73,23 @@ export function FileUpload({
             });
 
             if (validFiles.length > 0) {
-                const newPreviews = validFiles.map((file) => ({
+                const newPhotos = validFiles.map((file) => ({
                     file,
-                    url: URL.createObjectURL(file),
+                    caption: '',
+                    previewUrl: URL.createObjectURL(file),
                 }));
 
-                setPreviews((prev) => [...prev, ...newPreviews]);
-                onChange([
-                    ...previews.map((p) => p.file),
-                    ...validFiles,
-                ]);
+                const updated = [...previews, ...newPhotos];
+                setPreviews(updated);
+
+                if (withCaption && onPhotosChange) {
+                    onPhotosChange(updated);
+                } else {
+                    onChange(updated.map((p) => p.file));
+                }
             }
         },
-        [maxSize, onChange, previews]
+        [maxSize, onChange, onPhotosChange, previews, withCaption]
     );
 
     const handleDrag = useCallback((e: React.DragEvent) => {
@@ -95,11 +124,26 @@ export function FileUpload({
     );
 
     const removePreview = (index: number) => {
+        URL.revokeObjectURL(previews[index].previewUrl);
         const updated = previews.filter((_, i) => i !== index);
-        // Revoke old URL
-        URL.revokeObjectURL(previews[index].url);
         setPreviews(updated);
-        onChange(updated.map((p) => p.file));
+
+        if (withCaption && onPhotosChange) {
+            onPhotosChange(updated);
+        } else {
+            onChange(updated.map((p) => p.file));
+        }
+    };
+
+    const updateCaption = (index: number, caption: string) => {
+        const updated = previews.map((p, i) =>
+            i === index ? { ...p, caption } : p
+        );
+        setPreviews(updated);
+
+        if (withCaption && onPhotosChange) {
+            onPhotosChange(updated);
+        }
     };
 
     return (
@@ -141,8 +185,59 @@ export function FileUpload({
                 <p className="text-sm text-destructive">{error}</p>
             )}
 
-            {/* Existing File Previews */}
-            {existingFiles.length > 0 && (
+            {/* Existing Photos with caption support */}
+            {existingPhotos.length > 0 && (
+                <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                        Foto yang sudah ada:
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {existingPhotos.map((photo) => (
+                            <div
+                                key={`existing-photo-${photo.id}`}
+                                className="group relative overflow-hidden rounded-md border"
+                            >
+                                <div className="aspect-square">
+                                    <img
+                                        src={photo.photo_url}
+                                        alt={photo.caption || 'Photo'}
+                                        className="size-full object-cover"
+                                    />
+                                </div>
+                                {withCaption && (
+                                    <div className="p-2">
+                                        <Input
+                                            value={photo.caption || ''}
+                                            onChange={(e) =>
+                                                onUpdateExistingCaption?.(photo.id, e.target.value)
+                                            }
+                                            placeholder="Keterangan..."
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                )}
+                                {onRemoveExistingPhoto && (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon-sm"
+                                        className="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemoveExistingPhoto(photo.id);
+                                        }}
+                                    >
+                                        <X className="size-3" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Legacy existing files (backward compat) */}
+            {existingFiles.length > 0 && existingPhotos.length === 0 && (
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">
                         Foto yang sudah ada:
@@ -178,23 +273,35 @@ export function FileUpload({
                 </div>
             )}
 
-            {/* New File Previews */}
+            {/* New File Previews with Caption */}
             {previews.length > 0 && (
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">
                         Foto baru:
                     </p>
-                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                         {previews.map((preview, index) => (
                             <div
                                 key={`new-${index}`}
-                                className="group relative aspect-square overflow-hidden rounded-md border"
+                                className="group relative overflow-hidden rounded-md border"
                             >
-                                <img
-                                    src={preview.url}
-                                    alt={`New photo ${index + 1}`}
-                                    className="size-full object-cover"
-                                />
+                                <div className="aspect-square">
+                                    <img
+                                        src={preview.previewUrl}
+                                        alt={preview.caption || `New photo ${index + 1}`}
+                                        className="size-full object-cover"
+                                    />
+                                </div>
+                                {withCaption && (
+                                    <div className="p-2">
+                                        <Input
+                                            value={preview.caption}
+                                            onChange={(e) => updateCaption(index, e.target.value)}
+                                            placeholder="Keterangan foto..."
+                                            className="h-8 text-xs"
+                                        />
+                                    </div>
+                                )}
                                 <Button
                                     type="button"
                                     variant="destructive"

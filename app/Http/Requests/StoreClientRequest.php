@@ -23,6 +23,8 @@ class StoreClientRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string'],
             'npwp' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
             'pic_name' => ['nullable', 'string', 'max:255'],
             'pic_phone' => ['nullable', 'string', 'max:20'],
             'is_active' => ['boolean'],

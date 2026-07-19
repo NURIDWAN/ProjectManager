@@ -140,6 +140,7 @@ export default function Create({ clients, workReports, selectedClientId }: Props
                         <Select
                             value={clientFilter || 'all'}
                             onValueChange={(value) => handleClientFilterChange(value ?? 'all')}
+                            items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Pilih klien untuk filter laporan" />

@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,13 +18,16 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Building2, UserCircle, Save } from 'lucide-react';
+import { ArrowLeft, Building2, UserCircle, Save, Upload, X } from 'lucide-react';
+import { useState, useRef } from 'react';
 
 interface Client {
     id: number;
     name: string;
+    logo: string | null;
     npwp: string | null;
     address: string;
+    phone: string | null;
     pic_name: string | null;
     pic_phone: string | null;
     is_active: boolean;
@@ -35,18 +38,57 @@ interface Props {
 }
 
 export default function ClientsEdit({ client }: Props) {
-    const { data, setData, put, processing, errors } = useForm({
+    const { data, setData, processing, errors } = useForm({
         name: client.name,
         npwp: client.npwp || '',
         address: client.address,
+        phone: client.phone || '',
         pic_name: client.pic_name || '',
         pic_phone: client.pic_phone || '',
         is_active: client.is_active,
     });
 
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(
+        client.logo ? `/storage/${client.logo}` : null
+    );
+    const [removeLogo, setRemoveLogo] = useState(false);
+    const logoInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+            setRemoveLogo(false);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setLogoFile(null);
+        if (logoPreview && !client.logo) URL.revokeObjectURL(logoPreview);
+        setLogoPreview(null);
+        setRemoveLogo(true);
+        if (logoInputRef.current) logoInputRef.current.value = '';
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/clients/${client.id}`, {
+
+        const formData = new FormData();
+        formData.append('_method', 'PUT');
+        formData.append('name', data.name);
+        formData.append('npwp', data.npwp);
+        formData.append('address', data.address);
+        formData.append('phone', data.phone);
+        formData.append('pic_name', data.pic_name);
+        formData.append('pic_phone', data.pic_phone);
+        formData.append('is_active', data.is_active ? '1' : '0');
+        if (logoFile) formData.append('logo', logoFile);
+        if (removeLogo) formData.append('remove_logo', '1');
+
+        router.post(`/clients/${client.id}`, formData, {
+            forceFormData: true,
             onSuccess: () => {
                 toast.success('Klien berhasil diperbarui.');
             },
@@ -94,6 +136,53 @@ export default function ClientsEdit({ client }: Props) {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* Logo */}
+                            <div className="space-y-2">
+                                <Label>Logo Perusahaan</Label>
+                                <div className="flex items-center gap-4">
+                                    {logoPreview ? (
+                                        <div className="relative">
+                                            <img
+                                                src={logoPreview}
+                                                alt="Logo preview"
+                                                className="h-16 w-auto rounded border object-contain"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="icon-sm"
+                                                className="absolute -right-2 -top-2"
+                                                onClick={handleRemoveLogo}
+                                            >
+                                                <X className="size-3" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => logoInputRef.current?.click()}
+                                            className="flex h-16 w-32 cursor-pointer items-center justify-center rounded border-2 border-dashed border-muted-foreground/25 transition-colors hover:border-primary/50"
+                                        >
+                                            <Upload className="size-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <input
+                                        ref={logoInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png"
+                                        onChange={handleLogoChange}
+                                        className="sr-only"
+                                    />
+                                    {!logoPreview && (
+                                        <p className="text-xs text-muted-foreground">
+                                            JPG/PNG, maks 2MB
+                                        </p>
+                                    )}
+                                </div>
+                                {(errors as any).logo && (
+                                    <p className="text-sm text-destructive">{(errors as any).logo}</p>
+                                )}
+                            </div>
+
                             {/* Nama */}
                             <div className="space-y-2">
                                 <Label htmlFor="name">
@@ -144,12 +233,27 @@ export default function ClientsEdit({ client }: Props) {
                                 )}
                             </div>
 
+                            {/* Telepon Perusahaan */}
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Telepon Perusahaan</Label>
+                                <Input
+                                    id="phone"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                    placeholder="021-12345678"
+                                />
+                                {errors.phone && (
+                                    <p className="text-sm text-destructive">{errors.phone}</p>
+                                )}
+                            </div>
+
                             {/* Status */}
                             <div className="space-y-2">
                                 <Label htmlFor="status">Status</Label>
                                 <Select
                                     value={data.is_active ? 'active' : 'inactive'}
                                     onValueChange={(value) => setData('is_active', value === 'active')}
+                                    items={{ active: 'Aktif', inactive: 'Nonaktif' }}
                                 >
                                     <SelectTrigger id="status" className="w-full">
                                         <SelectValue placeholder="Pilih status" />
@@ -210,7 +314,7 @@ export default function ClientsEdit({ client }: Props) {
 
                                 {/* Telepon PIC */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="pic_phone">Nomor Telepon</Label>
+                                    <Label htmlFor="pic_phone">Nomor Telepon PIC</Label>
                                     <Input
                                         id="pic_phone"
                                         type="tel"

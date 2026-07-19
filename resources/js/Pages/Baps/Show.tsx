@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { StatusBadge } from '@/Components/StatusBadge';
+import AcRecapTable, { AcRecapRow } from '@/Components/AcRecapTable';
+import { PdfPreviewModal } from '@/Components/PdfPreviewModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,6 +23,7 @@ import {
     ArrowLeft,
     CheckCircle,
     Download,
+    Eye,
     FileText,
     Calendar,
     Building2,
@@ -39,11 +40,14 @@ interface WorkReport {
     category_id: number | null;
     technician_id: number;
     description: string | null;
-    status: string;
+    area: string | null;
+    status: 'draft' | 'submitted';
     submitted_at: string | null;
     created_at: string;
     category?: { id: number; name: string } | null;
     technician?: { id: number; name: string } | null;
+    before_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
+    after_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
 }
 
 interface Bap {
@@ -68,12 +72,14 @@ interface Bap {
 interface Props {
     bap: Bap;
     workReports: WorkReport[];
+    acRecapRows?: AcRecapRow[];
 }
 
-export default function Show({ bap, workReports }: Props) {
+export default function Show({ bap, workReports, acRecapRows }: Props) {
     const [approveModalOpen, setApproveModalOpen] = useState(false);
     const [signedBy, setSignedBy] = useState('');
     const [signedByError, setSignedByError] = useState('');
+    const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
     const { flash } = usePage().props as any;
 
@@ -110,7 +116,7 @@ export default function Show({ bap, workReports }: Props) {
     };
 
     const handleExportPdf = () => {
-        window.open(`/baps/${bap.id}/export-pdf`, '_blank');
+        window.location.assign(`/baps/${bap.id}/export-pdf`);
     };
 
     const formatDate = (dateStr: string) => {
@@ -163,10 +169,18 @@ export default function Show({ bap, workReports }: Props) {
                         <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setPdfPreviewOpen(true)}
+                        >
+                            <Eye className="mr-2 size-4" />
+                            Review
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={handleExportPdf}
                         >
                             <Download className="mr-2 size-4" />
-                            Export PDF
+                            Download PDF
                         </Button>
                     </div>
                 </div>
@@ -272,76 +286,176 @@ export default function Show({ bap, workReports }: Props) {
                             </CardContent>
                         </Card>
 
-                        {/* Detail Pekerjaan */}
-                        <Card>
-                            <CardHeader className="pb-4">
-                                <div className="flex items-center justify-between">
+                        {/* Detail Pekerjaan - Table BAP Format */}
+                        {/* AC Recap Table - before visual documentation */}
+                        {acRecapRows && acRecapRows.length > 0 && (
+                            <Card className="overflow-hidden">
+                                <CardContent className="overflow-x-auto p-4">
+                                    <AcRecapTable rows={acRecapRows} clientName={bap.client?.name ?? undefined} />
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {workReports.length === 0 ? (
+                            <Card>
+                                <CardHeader className="pb-4">
                                     <CardTitle className="flex items-center gap-2 text-base">
                                         <ClipboardList className="size-4 text-muted-foreground" />
                                         Detail Pekerjaan
                                     </CardTitle>
-                                    <Badge variant="secondary">
-                                        {workReports.length} laporan
-                                    </Badge>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {workReports.length === 0 ? (
+                                </CardHeader>
+                                <CardContent>
                                     <div className="flex flex-col items-center justify-center py-8 text-center">
                                         <ClipboardList className="mb-2 size-10 text-muted-foreground/40" />
                                         <p className="text-sm text-muted-foreground">
                                             Tidak ada laporan kerja terkait.
                                         </p>
                                     </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {workReports.map((report, index) => (
-                                            <div
-                                                key={report.id}
-                                                className="rounded-lg border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                                                            {index + 1}
-                                                        </span>
-                                                        <p className="text-sm font-medium">
-                                                            {report.category?.name ?? 'Tanpa Kategori'}
-                                                        </p>
-                                                    </div>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {formatDateTime(report.created_at)}
-                                                    </span>
-                                                </div>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="space-y-6">
+                                {workReports.map((report, index) => (
+                                    <Card key={report.id} className="overflow-hidden">
+                                        {/* Header Info Table - like the image */}
+                                        <div className="border-b">
+                                            <table className="w-full text-sm">
+                                                <tbody>
+                                                    <tr className="border-b">
+                                                        <td className="w-40 border-r px-3 py-1.5 font-medium text-muted-foreground">
+                                                            Tanggal Pekerjaan
+                                                        </td>
+                                                        <td className="w-4 border-r px-2 py-1.5 text-center text-muted-foreground">:</td>
+                                                        <td className="px-3 py-1.5 font-semibold">
+                                                            {formatDate(report.created_at)}
+                                                        </td>
+                                                    </tr>
+                                                    <tr className="border-b">
+                                                        <td className="border-r px-3 py-1.5 font-medium text-muted-foreground">
+                                                            Jenis Pekerjaan
+                                                        </td>
+                                                        <td className="border-r px-2 py-1.5 text-center text-muted-foreground">:</td>
+                                                        <td className="px-3 py-1.5 font-semibold">
+                                                            {report.category?.name ?? '-'}
+                                                        </td>
+                                                    </tr>
+                                                    <tr className="border-b">
+                                                        <td className="border-r px-3 py-1.5 font-medium text-muted-foreground">
+                                                            Konsumen
+                                                        </td>
+                                                        <td className="border-r px-2 py-1.5 text-center text-muted-foreground">:</td>
+                                                        <td className="px-3 py-1.5 font-semibold">
+                                                            {bap.client?.name ?? '-'}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border-r px-3 py-1.5 font-medium text-muted-foreground">
+                                                            Alamat
+                                                        </td>
+                                                        <td className="border-r px-2 py-1.5 text-center text-muted-foreground">:</td>
+                                                        <td className="px-3 py-1.5 font-semibold">
+                                                            {bap.client?.address ?? '-'}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
 
-                                                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="size-3.5 text-muted-foreground" />
-                                                        <span className="text-xs text-muted-foreground">
-                                                            Teknisi:
-                                                        </span>
-                                                        <span className="text-xs font-medium">
-                                                            {report.technician?.name ?? '-'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <StatusBadge status={report.status} />
-                                                    </div>
-                                                </div>
+                                        {/* Documentation Table */}
+                                        {((report.before_photo_items && report.before_photo_items.length > 0) ||
+                                          (report.after_photo_items && report.after_photo_items.length > 0)) && (
+                                            <div className="border-t">
+                                                <table className="w-full border-collapse text-sm">
+                                                    <thead>
+                                                        <tr className="border-b bg-muted/30">
+                                                            <th className="w-12 border-r px-2 py-2 text-center font-bold">
+                                                                NO
+                                                            </th>
+                                                            <th className="px-3 py-2 text-center font-bold uppercase">
+                                                                Visual Unit {report.category?.name ?? ''}
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {/* Before Photos Row */}
+                                                        {report.before_photo_items && report.before_photo_items.length > 0 && (
+                                                            <tr className="border-b">
+                                                                <td className="border-r px-2 py-3 text-center align-top font-bold">
+                                                                    {index + 1}
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    <div className="grid grid-cols-3 gap-3">
+                                                                        {report.before_photo_items.map((photo) => (
+                                                                            <div key={photo.id} className="text-center">
+                                                                                <div className="aspect-[4/3] overflow-hidden rounded border">
+                                                                                    <img
+                                                                                        src={photo.photo_url}
+                                                                                        alt={photo.caption || 'Before'}
+                                                                                        className="size-full object-cover"
+                                                                                    />
+                                                                                </div>
+                                                                                <p className="mt-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                                                                                    {photo.caption || 'BEFORE'}
+                                                                                </p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
 
-                                                {report.description && (
-                                                    <div className="mt-3 rounded-md bg-background p-3">
-                                                        <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                                                            {report.description}
-                                                        </p>
-                                                    </div>
-                                                )}
+                                                        {/* After Photos Section Header */}
+                                                        {report.after_photo_items && report.after_photo_items.length > 0 && (
+                                                            <>
+                                                                <tr className="border-b bg-muted/30">
+                                                                    <th className="border-r px-2 py-2 text-center font-bold">
+                                                                    </th>
+                                                                    <th className="px-3 py-2 text-center font-bold uppercase">
+                                                                        Visual Unit {report.category?.name ?? ''} After
+                                                                    </th>
+                                                                </tr>
+                                                                <tr className="border-b">
+                                                                    <td className="border-r px-2 py-3 text-center align-top font-bold">
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <div className="grid grid-cols-3 gap-3">
+                                                                            {report.after_photo_items.map((photo) => (
+                                                                                <div key={photo.id} className="text-center">
+                                                                                    <div className="aspect-[4/3] overflow-hidden rounded border">
+                                                                                        <img
+                                                                                            src={photo.photo_url}
+                                                                                            alt={photo.caption || 'After'}
+                                                                                            className="size-full object-cover"
+                                                                                        />
+                                                                                    </div>
+                                                                                    <p className="mt-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                                                                                        {photo.caption || 'AFTER'}
+                                                                                    </p>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </>
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                        )}
+
+                                        {/* Description if any */}
+                                        {report.description && (
+                                            <div className="border-t px-4 py-3">
+                                                <p className="text-xs font-medium text-muted-foreground">Keterangan:</p>
+                                                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                                                    {report.description}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Column - Client Info & Document */}
@@ -353,7 +467,7 @@ export default function Show({ bap, workReports }: Props) {
                                     <Building2 className="size-4 text-muted-foreground" />
                                     Info Klien
                                 </CardTitle>
-                            </CardHeader>
+                        </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
                                     <p className="text-xs font-medium text-muted-foreground">
@@ -545,6 +659,14 @@ export default function Show({ bap, workReports }: Props) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* PDF Preview Modal */}
+            <PdfPreviewModal
+                open={pdfPreviewOpen}
+                onOpenChange={setPdfPreviewOpen}
+                url={`/baps/${bap.id}/pdf-preview`}
+                title={`BAP - ${bap.nomor_surat}`}
+            />
         </AuthenticatedLayout>
     );
 }

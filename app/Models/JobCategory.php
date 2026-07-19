@@ -13,6 +13,7 @@ class JobCategory extends Model
     protected $fillable = [
         'name',
         'description',
+        'preset_identifier',
     ];
 
     public function workReports(): HasMany

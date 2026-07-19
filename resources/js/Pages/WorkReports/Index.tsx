@@ -265,6 +265,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                         <Select
                             value={statusFilter || 'all'}
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
+                            items={{ all: 'Semua Status', draft: 'Draft', submitted: 'Submitted' }}
                         >
                             <SelectTrigger className="w-[160px]">
                                 <SelectValue placeholder="Status" />
@@ -279,6 +280,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                         <Select
                             value={clientFilter || 'all'}
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
+                            items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
                             <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="Klien" />

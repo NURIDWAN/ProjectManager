@@ -201,6 +201,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                         <Select
                             value={statusFilter || 'all'}
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
+                            items={{ all: 'Semua Status', '1': 'Aktif', '0': 'Nonaktif' }}
                         >
                             <SelectTrigger className="w-[160px]">
                                 <SelectValue placeholder="Status" />

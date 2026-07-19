@@ -13,8 +13,10 @@ class Client extends Model
 
     protected $fillable = [
         'name',
+        'logo',
         'npwp',
         'address',
+        'phone',
         'pic_name',
         'pic_phone',
         'is_active',
@@ -35,6 +37,11 @@ class Client extends Model
     public function baps(): HasMany
     {
         return $this->hasMany(Bap::class);
+    }
+
+    public function basts(): HasMany
+    {
+        return $this->hasMany(Bast::class);
     }
 
     public function invoices(): HasMany

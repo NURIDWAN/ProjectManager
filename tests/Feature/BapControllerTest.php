@@ -343,9 +343,9 @@ class BapControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    // === LOCK APPROVED BAP ===
+    // === APPROVED BAP CAN BE MODIFIED (status lock removed) ===
 
-    public function test_cannot_edit_approved_bap(): void
+    public function test_can_edit_approved_bap(): void
     {
         $bap = Bap::factory()->approved()->create([
             'client_id' => $this->client->id,
@@ -353,10 +353,10 @@ class BapControllerTest extends TestCase
 
         $response = $this->actingAs($this->admin)->get("/baps/{$bap->id}/edit");
 
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
-    public function test_cannot_update_approved_bap(): void
+    public function test_can_update_approved_bap(): void
     {
         $report = WorkReport::factory()->submitted()->create([
             'client_id' => $this->client->id,
@@ -375,10 +375,10 @@ class BapControllerTest extends TestCase
             'work_report_ids' => [$report->id],
         ]);
 
-        $response->assertStatus(403);
+        $response->assertRedirect();
     }
 
-    public function test_cannot_delete_approved_bap(): void
+    public function test_can_delete_approved_bap(): void
     {
         $bap = Bap::factory()->approved()->create([
             'client_id' => $this->client->id,
@@ -386,7 +386,8 @@ class BapControllerTest extends TestCase
 
         $response = $this->actingAs($this->admin)->delete("/baps/{$bap->id}");
 
-        $response->assertStatus(403);
+        $response->assertRedirect(route('baps.index'));
+        $this->assertDatabaseMissing('baps', ['id' => $bap->id]);
     }
 
     // === DRAFT BAP CAN BE MODIFIED ===

@@ -36,6 +36,11 @@ class Bap extends Model
         return $this->belongsTo(Client::class);
     }
 
+    public function bast(): HasOne
+    {
+        return $this->hasOne(Bast::class);
+    }
+
     public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);

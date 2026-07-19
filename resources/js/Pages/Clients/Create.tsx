@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,21 +19,54 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { ArrowLeft, Building2, UserCircle, Save } from 'lucide-react';
+import { ArrowLeft, Building2, UserCircle, Save, Upload, X } from 'lucide-react';
+import { useState, useRef } from 'react';
 
 export default function ClientsCreate() {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         npwp: '',
         address: '',
+        phone: '',
         pic_name: '',
         pic_phone: '',
         is_active: true,
     });
 
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const logoInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const removeLogo = () => {
+        setLogoFile(null);
+        if (logoPreview) URL.revokeObjectURL(logoPreview);
+        setLogoPreview(null);
+        if (logoInputRef.current) logoInputRef.current.value = '';
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/clients', {
+
+        const formData = new FormData();
+        formData.append('name', data.name);
+        formData.append('npwp', data.npwp);
+        formData.append('address', data.address);
+        formData.append('phone', data.phone);
+        formData.append('pic_name', data.pic_name);
+        formData.append('pic_phone', data.pic_phone);
+        formData.append('is_active', data.is_active ? '1' : '0');
+        if (logoFile) formData.append('logo', logoFile);
+
+        router.post('/clients', formData, {
+            forceFormData: true,
             onSuccess: () => {
                 toast.success('Klien berhasil ditambahkan.');
             },
@@ -81,6 +114,53 @@ export default function ClientsCreate() {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* Logo */}
+                            <div className="space-y-2">
+                                <Label>Logo Perusahaan</Label>
+                                <div className="flex items-center gap-4">
+                                    {logoPreview ? (
+                                        <div className="relative">
+                                            <img
+                                                src={logoPreview}
+                                                alt="Logo preview"
+                                                className="h-16 w-auto rounded border object-contain"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="icon-sm"
+                                                className="absolute -right-2 -top-2"
+                                                onClick={removeLogo}
+                                            >
+                                                <X className="size-3" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => logoInputRef.current?.click()}
+                                            className="flex h-16 w-32 cursor-pointer items-center justify-center rounded border-2 border-dashed border-muted-foreground/25 transition-colors hover:border-primary/50"
+                                        >
+                                            <Upload className="size-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <input
+                                        ref={logoInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png"
+                                        onChange={handleLogoChange}
+                                        className="sr-only"
+                                    />
+                                    {!logoPreview && (
+                                        <p className="text-xs text-muted-foreground">
+                                            JPG/PNG, maks 2MB
+                                        </p>
+                                    )}
+                                </div>
+                                {(errors as any).logo && (
+                                    <p className="text-sm text-destructive">{(errors as any).logo}</p>
+                                )}
+                            </div>
+
                             {/* Nama */}
                             <div className="space-y-2">
                                 <Label htmlFor="name">
@@ -131,12 +211,27 @@ export default function ClientsCreate() {
                                 )}
                             </div>
 
+                            {/* Telepon Perusahaan */}
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Telepon Perusahaan</Label>
+                                <Input
+                                    id="phone"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                    placeholder="021-12345678"
+                                />
+                                {errors.phone && (
+                                    <p className="text-sm text-destructive">{errors.phone}</p>
+                                )}
+                            </div>
+
                             {/* Status */}
                             <div className="space-y-2">
                                 <Label htmlFor="status">Status</Label>
                                 <Select
                                     value={data.is_active ? 'active' : 'inactive'}
                                     onValueChange={(value) => setData('is_active', value === 'active')}
+                                    items={{ active: 'Aktif', inactive: 'Nonaktif' }}
                                 >
                                     <SelectTrigger id="status" className="w-full">
                                         <SelectValue placeholder="Pilih status" />

@@ -216,6 +216,7 @@ export default function ServicesIndex({ services, filters }: Props) {
                         <Select
                             value={filters.type || 'all'}
                             onValueChange={(value) => handleTypeFilter(value ?? 'all')}
+                            items={{ all: 'Semua Tipe', service: 'Jasa', product: 'Produk' }}
                         >
                             <SelectTrigger className="w-[160px]">
                                 <SelectValue placeholder="Semua Tipe" />
@@ -229,6 +230,7 @@ export default function ServicesIndex({ services, filters }: Props) {
                         <Select
                             value={filters.is_active ?? 'all'}
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
+                            items={{ all: 'Semua Status', '1': 'Aktif', '0': 'Nonaktif' }}
                         >
                             <SelectTrigger className="w-[160px]">
                                 <SelectValue placeholder="Semua Status" />

@@ -6,6 +6,7 @@ use App\Http\Requests\StoreBapRequest;
 use App\Models\Bap;
 use App\Models\Client;
 use App\Models\WorkReport;
+use App\Services\AcRecapAggregatorInterface;
 use App\Services\BapNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;
 use Carbon\Carbon;
@@ -19,7 +20,8 @@ class BapController extends Controller
 {
     public function __construct(
         private BapNumberGeneratorInterface $numberGenerator,
-        private PdfExportServiceInterface $pdfExportService
+        private PdfExportServiceInterface $pdfExportService,
+        private AcRecapAggregatorInterface $acRecapAggregator
     ) {}
 
     /**
@@ -106,29 +108,29 @@ class BapController extends Controller
     {
         $bap = Bap::with('client')->findOrFail($id);
 
-        // Load the related work reports with detail pekerjaan
-        $workReports = WorkReport::with(['client', 'category', 'technician'])
+        // Load the related work reports with detail pekerjaan and photos
+        $workReports = WorkReport::with(['client', 'category', 'technician', 'beforePhotoItems', 'afterPhotoItems'])
             ->whereIn('id', $bap->work_report_ids ?? [])
             ->get();
+
+        // Aggregate AC recap data from work reports with AC preset category
+        $acRecapRows = $this->acRecapAggregator->aggregate($workReports);
 
         return Inertia::render('Baps/Show', [
             'bap' => $bap,
             'workReports' => $workReports,
+            'acRecapRows' => $acRecapRows,
         ]);
     }
 
     /**
      * Show the form for editing a BAP.
-     * Approved BAPs cannot be edited.
      */
     public function edit($id): Response
     {
         $bap = Bap::with('client')->findOrFail($id);
 
-        // Lock: Approved BAPs cannot be modified
-        if ($bap->status === Bap::STATUS_APPROVED) {
-            abort(403, 'BAP yang sudah di-approve tidak dapat diubah.');
-        }
+        // Status lock REMOVED - allow editing regardless of status
 
         $clients = Client::active()->select('id', 'name')->orderBy('name')->get();
 
@@ -146,16 +148,12 @@ class BapController extends Controller
 
     /**
      * Update the specified BAP in storage.
-     * Approved BAPs cannot be modified.
      */
     public function update(StoreBapRequest $request, $id): RedirectResponse
     {
         $bap = Bap::findOrFail($id);
 
-        // Lock: Approved BAPs cannot be modified
-        if ($bap->status === Bap::STATUS_APPROVED) {
-            abort(403, 'BAP yang sudah di-approve tidak dapat diubah.');
-        }
+        // Status lock REMOVED
 
         $bap->update([
             'client_id' => $request->input('client_id'),
@@ -169,16 +167,12 @@ class BapController extends Controller
 
     /**
      * Remove the specified BAP from storage.
-     * Approved BAPs cannot be deleted.
      */
     public function destroy($id): RedirectResponse
     {
         $bap = Bap::findOrFail($id);
 
-        // Lock: Approved BAPs cannot be deleted
-        if ($bap->status === Bap::STATUS_APPROVED) {
-            abort(403, 'BAP yang sudah di-approve tidak dapat dihapus.');
-        }
+        // Status lock REMOVED
 
         $bap->delete();
 
@@ -214,12 +208,22 @@ class BapController extends Controller
     }
 
     /**
-     * Export BAP as PDF.
+     * Return BAP PDF inline for the application preview.
+     */
+    public function previewPdf($id)
+    {
+        $bap = Bap::findOrFail($id);
+
+        return $this->pdfExportService->generateBapPdf($bap->id);
+    }
+
+    /**
+     * Download BAP as PDF.
      */
     public function exportPdf($id)
     {
         $bap = Bap::findOrFail($id);
 
-        return $this->pdfExportService->generateBapPdf($bap->id);
+        return $this->pdfExportService->generateBapPdf($bap->id, true);
     }
 }

@@ -175,11 +175,9 @@ export function DataTable<TData, TValue>({
                 {/* Column Visibility Toggle */}
                 {enableColumnVisibility && (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="ml-auto">
+                        <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="ml-auto" />}>
                                 <SlidersHorizontal className="mr-2 size-4" />
                                 Kolom
-                            </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Tampilkan Kolom</DropdownMenuLabel>
@@ -289,6 +287,7 @@ export function DataTable<TData, TValue>({
                             onValueChange={(value) =>
                                 table.setPageSize(Number(value ?? '10'))
                             }
+                            items={Object.fromEntries(pageSizeOptions.map(size => [String(size), String(size)]))}
                         >
                             <SelectTrigger className="h-8 w-[70px]">
                                 <SelectValue />
@@ -401,10 +400,8 @@ export function getSelectionColumn<TData>(): ColumnDef<TData, unknown> {
         id: 'select',
         header: ({ table }) => (
             <Checkbox
-                checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && 'indeterminate')
-                }
+                checked={table.getIsAllPageRowsSelected()}
+                indeterminate={table.getIsSomePageRowsSelected()}
                 onCheckedChange={(value) =>
                     table.toggleAllPageRowsSelected(!!value)
                 }

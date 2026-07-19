@@ -165,6 +165,7 @@ export default function ServicesCreate() {
                                 <Select
                                     value={data.type}
                                     onValueChange={(value) => setData('type', value as 'service' | 'product')}
+                                    items={{ service: 'Jasa', product: 'Produk' }}
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih tipe" />
@@ -184,6 +185,7 @@ export default function ServicesCreate() {
                                 <Select
                                     value={data.is_active ? '1' : '0'}
                                     onValueChange={(value) => setData('is_active', value === '1')}
+                                    items={{ '1': 'Aktif', '0': 'Nonaktif' }}
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih status" />

@@ -8,6 +8,7 @@ use App\Models\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,7 +58,14 @@ class ClientController extends Controller
      */
     public function store(StoreClientRequest $request): RedirectResponse
     {
-        Client::create($request->validated());
+        $data = $request->validated();
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            $data['logo'] = $request->file('logo')->store('clients', 'public');
+        }
+
+        Client::create($data);
 
         return Redirect::route('clients.index')
             ->with('success', 'Klien berhasil ditambahkan.');
@@ -78,7 +86,24 @@ class ClientController extends Controller
      */
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
-        $client->update($request->validated());
+        $data = $request->validated();
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo
+            if ($client->logo) {
+                Storage::disk('public')->delete($client->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('clients', 'public');
+        }
+
+        // Handle logo removal
+        if ($request->boolean('remove_logo') && $client->logo) {
+            Storage::disk('public')->delete($client->logo);
+            $data['logo'] = null;
+        }
+
+        $client->update($data);
 
         return Redirect::route('clients.index')
             ->with('success', 'Klien berhasil diperbarui.');

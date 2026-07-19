@@ -22,11 +22,15 @@ class Invoice extends Model
         'client_id',
         'subtotal',
         'discount_total',
+        'tax_percent',
         'ppn',
+        'shipping_cost',
         'grand_total',
         'due_date',
         'status',
         'paid_at',
+        'notes',
+        'terms',
     ];
 
     protected function casts(): array
@@ -34,7 +38,9 @@ class Invoice extends Model
         return [
             'subtotal' => 'decimal:2',
             'discount_total' => 'decimal:2',
+            'tax_percent' => 'decimal:2',
             'ppn' => 'decimal:2',
+            'shipping_cost' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'due_date' => 'date',
             'paid_at' => 'datetime',

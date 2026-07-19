@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { StatusBadge } from '@/Components/StatusBadge';
+import { PdfPreviewModal } from '@/Components/PdfPreviewModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft,
     Download,
+    Eye,
     MoreHorizontal,
     CreditCard,
     FileText,
@@ -63,11 +65,15 @@ interface Invoice {
     client_id: number;
     subtotal: string;
     discount_total: string;
+    tax_percent: string;
     ppn: string;
+    shipping_cost: string;
     grand_total: string;
     due_date: string | null;
     status: 'draft' | 'unpaid' | 'overdue' | 'paid';
     paid_at: string | null;
+    notes: string | null;
+    terms: string | null;
     created_at: string;
     updated_at: string;
     client?: {
@@ -102,6 +108,7 @@ const formatRupiah = (value: string | number) => {
 export default function Show({ invoice }: Props) {
     const [markUnpaidDialogOpen, setMarkUnpaidDialogOpen] = useState(false);
     const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
+    const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
     const [dueDate, setDueDate] = useState('');
     const [dueDateError, setDueDateError] = useState('');
 
@@ -150,7 +157,7 @@ export default function Show({ invoice }: Props) {
     };
 
     const handleExportPdf = () => {
-        window.open(`/invoices/${invoice.id}/export-pdf`, '_blank');
+        window.location.assign(`/invoices/${invoice.id}/export-pdf`);
     };
 
     const formatDate = (dateStr: string) => {
@@ -219,14 +226,24 @@ export default function Show({ invoice }: Props) {
                             </DropdownMenu>
                         )}
 
-                        {/* Export PDF Button */}
+                        {/* Review PDF Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPdfPreviewOpen(true)}
+                        >
+                            <Eye className="mr-2 size-4" />
+                            Review
+                        </Button>
+
+                        {/* Download PDF Button */}
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={handleExportPdf}
                         >
                             <Download className="mr-2 size-4" />
-                            Export PDF
+                            Download PDF
                         </Button>
                     </div>
                 </div>
@@ -244,10 +261,13 @@ export default function Show({ invoice }: Props) {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Klien</p>
                                 <p className="text-sm font-semibold">{invoice.client?.name ?? '-'}</p>
+                                {invoice.client?.pic_name && (
+                                    <p className="text-xs text-muted-foreground">PIC: {invoice.client.pic_name}</p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">No. BAP</p>
@@ -269,6 +289,17 @@ export default function Show({ invoice }: Props) {
                                 <p className="text-sm">{formatDate(invoice.created_at)}</p>
                             </div>
                             <div>
+                                <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
+                                <p className="text-lg font-bold text-primary">
+                                    {formatRupiah(invoice.grand_total)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
                                 <p className="text-sm font-medium text-muted-foreground">Jatuh Tempo</p>
                                 <p className="text-sm">
                                     {invoice.due_date ? formatDate(invoice.due_date) : '-'}
@@ -280,31 +311,25 @@ export default function Show({ invoice }: Props) {
                                     <p className="text-sm">{formatDateTime(invoice.paid_at)}</p>
                                 </div>
                             )}
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
-                                <p className="text-lg font-bold text-primary">
-                                    {formatRupiah(invoice.grand_total)}
-                                </p>
-                            </div>
-                        </div>
-
-                        {invoice.client?.address && (
-                            <>
-                                <Separator />
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground">Alamat Klien</p>
-                                        <p className="text-sm">{invoice.client.address}</p>
-                                    </div>
-                                    {invoice.client.npwp && (
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">NPWP</p>
-                                            <p className="text-sm">{invoice.client.npwp}</p>
-                                        </div>
-                                    )}
+                            {invoice.client?.address && (
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Alamat Klien</p>
+                                    <p className="text-sm">{invoice.client.address}</p>
                                 </div>
-                            </>
-                        )}
+                            )}
+                            {invoice.client?.npwp && (
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">NPWP</p>
+                                    <p className="text-sm">{invoice.client.npwp}</p>
+                                </div>
+                            )}
+                            {invoice.client?.pic_phone && (
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Telepon PIC</p>
+                                    <p className="text-sm">{invoice.client.pic_phone}</p>
+                                </div>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -381,22 +406,34 @@ export default function Show({ invoice }: Props) {
                                 </span>
                             </div>
                             {parseFloat(invoice.discount_total) > 0 && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-muted-foreground">Diskon</span>
+                                    <span className="text-sm font-medium text-destructive">
+                                        -{formatRupiah(invoice.discount_total)}
+                                    </span>
+                                </div>
+                            )}
+                            {parseFloat(invoice.ppn) > 0 && (
                                 <>
+                                    <Separator />
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-muted-foreground">Diskon</span>
-                                        <span className="text-sm font-medium text-destructive">
-                                            -{formatRupiah(invoice.discount_total)}
+                                        <span className="text-sm text-muted-foreground">
+                                            PPN ({parseFloat(invoice.tax_percent || '0')}%)
+                                        </span>
+                                        <span className="text-sm font-medium">
+                                            {formatRupiah(invoice.ppn)}
                                         </span>
                                     </div>
                                 </>
                             )}
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-muted-foreground">PPN (11%)</span>
-                                <span className="text-sm font-medium">
-                                    {formatRupiah(invoice.ppn)}
-                                </span>
-                            </div>
+                            {parseFloat(invoice.shipping_cost || '0') > 0 && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-muted-foreground">Biaya Pengiriman</span>
+                                    <span className="text-sm font-medium">
+                                        {formatRupiah(invoice.shipping_cost)}
+                                    </span>
+                                </div>
+                            )}
                             <Separator />
                             <div className="flex items-center justify-between">
                                 <span className="text-base font-semibold">Grand Total</span>
@@ -407,6 +444,26 @@ export default function Show({ invoice }: Props) {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Notes & Terms */}
+                {(invoice.notes || invoice.terms) && (
+                    <Card>
+                        <CardContent className="pt-6 space-y-4">
+                            {invoice.notes && (
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground mb-1">Catatan</p>
+                                    <p className="text-sm whitespace-pre-line">{invoice.notes}</p>
+                                </div>
+                            )}
+                            {invoice.terms && (
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground mb-1">Ketentuan</p>
+                                    <p className="text-sm whitespace-pre-line">{invoice.terms}</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Payment Status Info */}
                 {invoice.status === 'paid' && (
@@ -512,6 +569,14 @@ export default function Show({ invoice }: Props) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* PDF Preview Modal */}
+            <PdfPreviewModal
+                open={pdfPreviewOpen}
+                onOpenChange={setPdfPreviewOpen}
+                url={`/invoices/${invoice.id}/pdf-preview`}
+                title={`Invoice - ${invoice.invoice_number}`}
+            />
         </AuthenticatedLayout>
     );
 }

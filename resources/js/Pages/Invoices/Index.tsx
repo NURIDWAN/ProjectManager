@@ -13,7 +13,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Eye } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { DeleteConfirmationDialog } from '@/Components/DeleteConfirmationDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Invoice {
@@ -66,6 +67,8 @@ const formatRupiah = (value: string | number) => {
 export default function Index({ invoices, clients, filters }: Props) {
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [clientFilter, setClientFilter] = useState(filters.client_id || '');
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; label: string } | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const { flash } = usePage().props as any;
 
@@ -103,6 +106,19 @@ export default function Index({ invoices, clients, filters }: Props) {
         const v = value === 'all' ? '' : value;
         setClientFilter(v);
         applyFilters({ client_id: v });
+    };
+
+    const handleDelete = () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        router.delete(`/invoices/${deleteTarget.id}`, {
+            onSuccess: () => {
+                toast.success('Data berhasil dihapus.');
+                setDeleteTarget(null);
+            },
+            onError: () => toast.error('Gagal menghapus data.'),
+            onFinish: () => setDeleting(false),
+        });
     };
 
     const columns: ColumnDef<Invoice, any>[] = [
@@ -160,6 +176,24 @@ export default function Index({ invoices, clients, filters }: Props) {
                                 <Eye className="size-4" />
                             </Button>
                         </Link>
+                        <Link href={`/invoices/${invoice.id}/edit`}>
+                            <Button variant="ghost" size="icon-sm" title="Edit">
+                                <Pencil className="size-4" />
+                            </Button>
+                        </Link>
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Hapus"
+                            onClick={() =>
+                                setDeleteTarget({
+                                    id: invoice.id,
+                                    label: invoice.invoice_number,
+                                })
+                            }
+                        >
+                            <Trash2 className="size-4" />
+                        </Button>
                     </div>
                 );
             },
@@ -194,6 +228,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                         <Select
                             value={statusFilter || 'all'}
                             onValueChange={(value) => handleStatusFilter(value ?? 'all')}
+                            items={{ all: 'Semua Status', draft: 'Draft', unpaid: 'Unpaid', overdue: 'Overdue', paid: 'Paid' }}
                         >
                             <SelectTrigger className="w-[160px]">
                                 <SelectValue placeholder="Status" />
@@ -210,6 +245,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                         <Select
                             value={clientFilter || 'all'}
                             onValueChange={(value) => handleClientFilter(value ?? 'all')}
+                            items={{ all: 'Semua Klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}
                         >
                             <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="Klien" />
@@ -258,6 +294,15 @@ export default function Index({ invoices, clients, filters }: Props) {
                     )}
                 </CardContent>
             </Card>
+
+            <DeleteConfirmationDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+                title="Hapus Invoice?"
+                description={`Apakah Anda yakin ingin menghapus Invoice "${deleteTarget?.label}"? Tindakan ini tidak dapat dibatalkan.`}
+                onConfirm={handleDelete}
+                processing={deleting}
+            />
         </AuthenticatedLayout>
     );
 }

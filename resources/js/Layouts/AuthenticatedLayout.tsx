@@ -7,6 +7,7 @@ import {
     Package,
     FileText,
     FileCheck,
+    ClipboardCheck,
     Receipt,
     Menu,
     LogOut,
@@ -14,6 +15,7 @@ import {
     PanelLeftClose,
     PanelLeft,
     ChevronUp,
+    Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -84,9 +86,21 @@ const navItems: NavItem[] = [
         roles: ['admin'],
     },
     {
+        label: 'BAST',
+        href: '/basts',
+        icon: <ClipboardCheck className="size-4" />,
+        roles: ['admin'],
+    },
+    {
         label: 'Invoice',
         href: '/invoices',
         icon: <Receipt className="size-4" />,
+        roles: ['admin'],
+    },
+    {
+        label: 'Pengaturan',
+        href: '/settings/company',
+        icon: <Settings className="size-4" />,
         roles: ['admin'],
     },
 ];
@@ -108,7 +122,10 @@ function SidebarNav({
         ['Klien', 'Kategori Pekerjaan', 'Jasa/Produk'].includes(item.label)
     );
     const operationalItems = filteredItems.filter((item) =>
-        ['Laporan Kerja', 'BAP', 'Invoice'].includes(item.label)
+        ['Laporan Kerja', 'BAP', 'BAST', 'Invoice'].includes(item.label)
+    );
+    const settingsItems = filteredItems.filter((item) =>
+        ['Pengaturan'].includes(item.label)
     );
     const dashboardItem = filteredItems.find((item) => item.label === 'Dashboard');
 
@@ -136,7 +153,7 @@ function SidebarNav({
         if (collapsed) {
             return (
                 <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipTrigger render={<span />}>{button}</TooltipTrigger>
                     <TooltipContent side="right" sideOffset={8}>
                         {item.label}
                     </TooltipContent>
@@ -179,6 +196,13 @@ function SidebarNav({
                     {operationalItems.map(renderNavItem)}
                 </>
             )}
+
+            {settingsItems.length > 0 && (
+                <>
+                    <Separator className="my-2" />
+                    {settingsItems.map(renderNavItem)}
+                </>
+            )}
         </nav>
     );
 }
@@ -199,8 +223,7 @@ function UserMenu({
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button
+            <DropdownMenuTrigger
                     className={cn(
                         'flex w-full items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         collapsed && 'justify-center'
@@ -222,7 +245,6 @@ function UserMenu({
                             <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
                         </>
                     )}
-                </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
                 side={collapsed ? 'right' : 'top'}
@@ -234,23 +256,14 @@ function UserMenu({
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center gap-2">
+                <DropdownMenuItem render={<Link href="/profile" />} className="flex items-center gap-2">
                         <User className="size-4" />
                         Profile
-                    </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link
-                        href="/logout"
-                        method="post"
-                        as="button"
-                        className="flex w-full items-center gap-2 text-destructive focus:text-destructive"
-                    >
+                <DropdownMenuItem render={<Link href="/logout" method="post" as="button" />} className="flex w-full items-center gap-2 text-destructive focus:text-destructive">
                         <LogOut className="size-4" />
                         Logout
-                    </Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -285,11 +298,9 @@ export default function AuthenticatedLayout({
                 {/* Mobile/Tablet Top Bar */}
                 <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-white px-4 lg:hidden">
                     <Sheet>
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                        <SheetTrigger render={<Button variant="ghost" size="icon" />}>
                                 <Menu className="size-5" />
                                 <span className="sr-only">Toggle navigation</span>
-                            </Button>
                         </SheetTrigger>
                         <SheetContent side="left" className="w-64 p-0">
                             <SheetHeader className="border-b px-4 py-3">

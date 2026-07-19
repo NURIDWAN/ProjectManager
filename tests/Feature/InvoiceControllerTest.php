@@ -176,7 +176,7 @@ class InvoiceControllerTest extends TestCase
     public function test_admin_can_store_invoice(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -190,13 +190,12 @@ class InvoiceControllerTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('invoices', [
-            'bap_id' => $this->approvedBap->id,
             'client_id' => $this->client->id,
             'status' => Invoice::STATUS_DRAFT,
         ]);
 
         // Check invoice items were created
-        $invoice = Invoice::where('bap_id', $this->approvedBap->id)->first();
+        $invoice = Invoice::where('client_id', $this->client->id)->first();
         $this->assertNotNull($invoice);
         $this->assertEquals(1, $invoice->items()->count());
 
@@ -208,7 +207,7 @@ class InvoiceControllerTest extends TestCase
     public function test_store_generates_auto_invoice_number(): void
     {
         $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -226,7 +225,7 @@ class InvoiceControllerTest extends TestCase
     public function test_store_calculates_totals_correctly(): void
     {
         $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -246,10 +245,10 @@ class InvoiceControllerTest extends TestCase
         $this->assertEquals(2220000, (float) $invoice->grand_total);
     }
 
-    public function test_store_fails_without_bap_id(): void
+    public function test_store_fails_without_client_id(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => '',
+            'client_id' => '',
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -260,29 +259,23 @@ class InvoiceControllerTest extends TestCase
             ],
         ]);
 
-        $response->assertSessionHasErrors('bap_id');
+        $response->assertSessionHasErrors('client_id');
     }
 
     public function test_store_fails_without_items(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [],
         ]);
 
         $response->assertSessionHasErrors('items');
     }
 
-    public function test_store_fails_with_draft_bap(): void
+    public function test_store_fails_with_invalid_client_id(): void
     {
-        $draftBap = Bap::factory()->create([
-            'client_id' => $this->client->id,
-            'status' => Bap::STATUS_DRAFT,
-            'nomor_surat' => 'BAP/0010/01/2024',
-        ]);
-
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $draftBap->id,
+            'client_id' => 99999,
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -293,22 +286,16 @@ class InvoiceControllerTest extends TestCase
             ],
         ]);
 
-        $response->assertSessionHasErrors('bap_id');
+        $response->assertSessionHasErrors('client_id');
     }
 
-    public function test_store_fails_if_bap_already_has_invoice(): void
+    public function test_store_fails_with_invalid_service_id(): void
     {
-        // Create an invoice for the approvedBap first
-        Invoice::factory()->create([
-            'bap_id' => $this->approvedBap->id,
-            'client_id' => $this->client->id,
-        ]);
-
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
-                    'service_id' => $this->service->id,
+                    'service_id' => 99999,
                     'quantity' => 1,
                     'unit_price' => 500000,
                     'discount_percent' => 0,
@@ -316,13 +303,13 @@ class InvoiceControllerTest extends TestCase
             ],
         ]);
 
-        $response->assertSessionHasErrors('bap_id');
+        $response->assertSessionHasErrors('items.0.service_id');
     }
 
     public function test_store_fails_with_invalid_item_quantity(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
                     'service_id' => $this->service->id,
@@ -339,7 +326,7 @@ class InvoiceControllerTest extends TestCase
     public function test_store_fails_with_discount_over_100(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
-            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
             'items' => [
                 [
                     'service_id' => $this->service->id,
