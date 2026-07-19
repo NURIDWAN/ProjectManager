@@ -50,7 +50,7 @@ class DashboardAggregationService implements DashboardAggregationServiceInterfac
         $revenues = Invoice::where('status', Invoice::STATUS_PAID)
             ->whereNotNull('paid_at')
             ->where('paid_at', '>=', $startDate)
-            ->selectRaw("strftime('%Y-%m', paid_at) as month, SUM(grand_total) as total")
+            ->selectRaw("DATE_FORMAT(paid_at, '%Y-%m') as month, SUM(grand_total) as total")
             ->groupBy('month')
             ->orderBy('month')
             ->get()
