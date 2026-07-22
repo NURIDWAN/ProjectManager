@@ -19,6 +19,7 @@ class UserSeeder extends Seeder
                 'name' => 'Administrator',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_ADMIN,
+                'email_verified_at' => now(),
             ]
         );
 
@@ -28,6 +29,7 @@ class UserSeeder extends Seeder
                 'name' => 'Teknisi Default',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_TECHNICIAN,
+                'email_verified_at' => now(),
             ]
         );
     }

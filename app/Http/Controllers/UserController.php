@@ -72,6 +72,8 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
+            'role' => $data['role'],
+            'email_verified_at' => now(),
         ]);
 
         $user->assignRole($data['role']);
@@ -103,6 +105,7 @@ class UserController extends Controller
 
         $user->name = $data['name'];
         $user->email = $data['email'];
+        $user->role = $data['role'];
 
         // Only update password if provided
         if (!empty($data['password'])) {

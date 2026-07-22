@@ -47,7 +47,20 @@ class RolePermissionSeeder extends Seeder
         // 3. Migrate existing users from string column to Spatie roles
         // The legacy `role` column is retained for backward compatibility
         User::whereNotNull('role')->each(function (User $user) {
-            $user->assignRole($user->role);
+            if (!$user->hasAnyRole([$user->role])) {
+                $user->assignRole($user->role);
+            }
         });
+
+        // 4. Sync legacy role column for users that only have Spatie roles
+        User::whereNull('role')->each(function (User $user) {
+            $spatieRole = $user->roles->first();
+            if ($spatieRole) {
+                $user->update(['role' => $spatieRole->name]);
+            }
+        });
+
+        // 5. Ensure all users have email_verified_at set (admin-created users)
+        User::whereNull('email_verified_at')->update(['email_verified_at' => now()]);
     }
 }
