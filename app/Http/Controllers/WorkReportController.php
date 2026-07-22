@@ -204,7 +204,7 @@ class WorkReportController extends Controller
         $user = Auth::user();
 
         // Technician can only view their own reports
-        if ($user->isTechnician() && $work_report->technician_id !== $user->id) {
+        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
@@ -234,7 +234,7 @@ class WorkReportController extends Controller
         $user = Auth::user();
 
         // Technician can only edit their own reports
-        if ($user->isTechnician() && $work_report->technician_id !== $user->id) {
+        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
@@ -282,7 +282,7 @@ class WorkReportController extends Controller
         $user = Auth::user();
 
         // Technician can only update their own reports
-        if ($user->isTechnician() && $work_report->technician_id !== $user->id) {
+        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
@@ -383,7 +383,7 @@ class WorkReportController extends Controller
         $user = Auth::user();
 
         // Technician can only delete their own reports
-        if ($user->isTechnician() && $work_report->technician_id !== $user->id) {
+        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
@@ -417,7 +417,7 @@ class WorkReportController extends Controller
         $user = Auth::user();
 
         // Technician can only submit their own reports
-        if ($user->isTechnician() && $workReport->technician_id !== $user->id) {
+        if ($user->isTechnician() && (int) $workReport->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
