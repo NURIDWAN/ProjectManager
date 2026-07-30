@@ -188,7 +188,7 @@ export default function Create({ clients, categories }: Props) {
         >
             <Head title="Buat Laporan Kerja" />
 
-            <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-0">
+            <div className="mx-auto max-w-4xl px-0 sm:px-6 lg:px-0">
                 <form className="space-y-6">
                     {/* Detail Pekerjaan */}
                     <Card>
@@ -339,16 +339,17 @@ export default function Create({ clients, categories }: Props) {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
-                        <Link href="/work-reports">
-                            <Button type="button" variant="ghost">
+                    <div className="flex flex-col items-stretch gap-3 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                        <Link href="/work-reports" className="w-full sm:w-auto">
+                            <Button type="button" variant="ghost" className="w-full sm:w-auto">
                                 Batal
                             </Button>
                         </Link>
-                        <div className="flex items-center gap-3">
+                        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:items-center sm:gap-3">
                             <Button
                                 type="button"
                                 variant="outline"
+                                className="w-full sm:w-auto"
                                 disabled={processing}
                                 onClick={handleSaveDraft}
                             >
@@ -357,6 +358,7 @@ export default function Create({ clients, categories }: Props) {
                             </Button>
                             <Button
                                 type="button"
+                                className="w-full sm:w-auto"
                                 disabled={processing}
                                 onClick={handleSubmit}
                             >

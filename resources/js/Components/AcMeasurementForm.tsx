@@ -193,14 +193,14 @@ export default function AcMeasurementForm({
     };
 
     const inputClassName =
-        'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed h-10 sm:h-9';
+        'h-11 w-full min-w-0 rounded-md border-gray-300 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:h-9 sm:text-sm';
 
     const selectClassName =
-        'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed h-10 sm:h-9';
+        'h-11 w-full min-w-0 rounded-md border-gray-300 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:h-9 sm:text-sm';
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="min-w-0 space-y-6">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-medium text-gray-900">
                     Data Pengukuran AC
                 </h3>
@@ -209,7 +209,7 @@ export default function AcMeasurementForm({
                         type="button"
                         onClick={addEntry}
                         disabled={entries.length >= MAX_ENTRIES}
-                        className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-white transition duration-150 ease-in-out hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white transition duration-150 ease-in-out hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 sm:min-h-0 sm:w-auto sm:py-1.5"
                     >
                         + Tambah Unit AC
                     </button>
@@ -219,7 +219,7 @@ export default function AcMeasurementForm({
             {entries.map((entry, index) => (
                 <div
                     key={index}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                    className="min-w-0 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4"
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <h4 className="text-sm font-semibold text-gray-700">
@@ -487,9 +487,9 @@ export default function AcMeasurementForm({
                             <h5 className="mb-3 text-sm font-medium text-gray-600">
                                 Dokumentasi Foto
                             </h5>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
                                 {/* Foto Before */}
-                                <div>
+                                <div className="min-w-0">
                                     <p className="mb-2 text-xs font-medium text-gray-500">Foto Sebelum</p>
                                     <PhotoUploadArea
                                         entryIndex={index}
@@ -503,7 +503,7 @@ export default function AcMeasurementForm({
                                     />
                                 </div>
                                 {/* Foto After */}
-                                <div>
+                                <div className="min-w-0">
                                     <p className="mb-2 text-xs font-medium text-gray-500">Foto Sesudah</p>
                                     <PhotoUploadArea
                                         entryIndex={index}
@@ -527,11 +527,11 @@ export default function AcMeasurementForm({
                                 <h5 className="mb-3 text-sm font-medium text-gray-600">
                                     Dokumentasi Foto
                                 </h5>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
                                     {photos[index].existingBefore.length > 0 && (
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="mb-2 text-xs font-medium text-gray-500">Foto Sebelum</p>
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                                                 {photos[index].existingBefore.map((photo) => (
                                                     <div key={photo.id} className="aspect-square overflow-hidden rounded-md border">
                                                         <img src={photo.photo_url} alt="Before" className="size-full object-cover" />
@@ -541,9 +541,9 @@ export default function AcMeasurementForm({
                                         </div>
                                     )}
                                     {photos[index].existingAfter.length > 0 && (
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="mb-2 text-xs font-medium text-gray-500">Foto Sesudah</p>
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                                                 {photos[index].existingAfter.map((photo) => (
                                                     <div key={photo.id} className="aspect-square overflow-hidden rounded-md border">
                                                         <img src={photo.photo_url} alt="After" className="size-full object-cover" />
@@ -668,26 +668,27 @@ function PhotoUploadArea({
     const inputRef = useRef<HTMLInputElement>(null);
 
     return (
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-3">
             {/* Existing photos */}
             {existingPhotos.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                     {existingPhotos.map((photo) => (
-                        <div key={photo.id} className="group relative overflow-hidden rounded-md border">
+                        <div key={photo.id} className="relative min-w-0 overflow-hidden rounded-md border">
                             <div className="aspect-square">
                                 <img src={photo.photo_url} alt="" className="size-full object-cover" />
                             </div>
                             {photo.caption && (
                                 <div className="border-t bg-gray-50 px-2 py-1">
-                                    <p className="text-center text-xs text-gray-600">{photo.caption}</p>
+                                    <p className="break-words text-center text-xs text-gray-600">{photo.caption}</p>
                                 </div>
                             )}
                             <button
                                 type="button"
                                 onClick={() => onRemoveExisting(entryIndex, type, photo.id)}
-                                className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                className="absolute right-1 top-1 flex size-10 items-center justify-center rounded-full bg-red-600 text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:size-7"
+                                aria-label="Hapus foto tersimpan"
                             >
-                                <X className="size-3" />
+                                <X className="size-4" />
                             </button>
                         </div>
                     ))}
@@ -696,9 +697,9 @@ function PhotoUploadArea({
 
             {/* New photos with captions */}
             {photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                     {photos.map((photo, idx) => (
-                        <div key={idx} className="group relative overflow-hidden rounded-md border">
+                        <div key={idx} className="relative min-w-0 overflow-hidden rounded-md border">
                             <div className="aspect-square">
                                 <img src={photo.previewUrl} alt="" className="size-full object-cover" />
                             </div>
@@ -708,16 +709,17 @@ function PhotoUploadArea({
                                     value={photo.caption}
                                     onChange={(e) => onCaptionChange(entryIndex, type, idx, e.target.value)}
                                     placeholder="Keterangan foto..."
-                                    className="w-full rounded border-gray-200 px-2 py-1 text-xs focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                                    className="w-full min-w-0 rounded border-gray-200 px-2 py-2 text-base focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 sm:py-1 sm:text-xs"
                                     maxLength={255}
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={() => onRemove(entryIndex, type, idx)}
-                                className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                className="absolute right-1 top-1 flex size-10 items-center justify-center rounded-full bg-red-600 text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:size-7"
+                                aria-label="Hapus foto baru"
                             >
-                                <X className="size-3" />
+                                <X className="size-4" />
                             </button>
                         </div>
                     ))}
@@ -725,24 +727,25 @@ function PhotoUploadArea({
             )}
 
             {/* Upload button */}
-            <div
+            <button
+                type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 p-3 transition-colors hover:border-indigo-400"
+                className="flex min-h-16 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 px-3 py-4 text-gray-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
-                <Upload className="mr-2 size-4 text-gray-400" />
-                <span className="text-xs text-gray-500">Upload foto</span>
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png"
-                    multiple
-                    onChange={(e) => {
-                        onUpload(entryIndex, type, e.target.files);
-                        e.target.value = '';
-                    }}
-                    className="sr-only"
-                />
-            </div>
+                <Upload className="mr-2 size-5 shrink-0 text-gray-500" />
+                <span className="text-sm font-medium">Upload foto</span>
+            </button>
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                multiple
+                onChange={(e) => {
+                    onUpload(entryIndex, type, e.target.files);
+                    e.target.value = '';
+                }}
+                className="sr-only"
+            />
         </div>
     );
 }
