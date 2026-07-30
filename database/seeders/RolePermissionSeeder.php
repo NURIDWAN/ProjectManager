@@ -44,6 +44,9 @@ class RolePermissionSeeder extends Seeder
         $technician = Role::firstOrCreate(['name' => 'technician']);
         $technician->syncPermissions(['manage-work-reports']);
 
+        $staff = Role::firstOrCreate(['name' => 'staff']);
+        $staff->syncPermissions(['manage-work-reports']);
+
         // 3. Migrate existing users from string column to Spatie roles
         // The legacy `role` column is retained for backward compatibility
         User::whereNotNull('role')->each(function (User $user) {

@@ -47,7 +47,7 @@ interface NavItem {
     label: string;
     href: string;
     icon: ReactNode;
-    roles: ('admin' | 'technician')[];
+    roles: ('admin' | 'technician' | 'staff')[];
 }
 
 const navItems: NavItem[] = [
@@ -79,7 +79,7 @@ const navItems: NavItem[] = [
         label: 'Laporan Kerja',
         href: '/work-reports',
         icon: <FileText className="size-4" />,
-        roles: ['admin', 'technician'],
+        roles: ['admin', 'technician', 'staff'],
     },
     {
         label: 'BAP',

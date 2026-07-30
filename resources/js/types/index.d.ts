@@ -15,7 +15,7 @@ export interface User {
     name: string;
     email: string;
     email_verified_at?: string;
-    role: 'admin' | 'technician';
+    role: 'admin' | 'technician' | 'staff';
     roles?: Role[];
 }
 

@@ -26,6 +26,7 @@ class RoleBasedAccessTest extends TestCase
 
     private User $admin;
     private User $technician;
+    private User $staff;
     private Client $client;
     private JobCategory $jobCategory;
     private Service $service;
@@ -41,6 +42,11 @@ class RoleBasedAccessTest extends TestCase
 
         $this->technician = User::factory()->create([
             'role' => User::ROLE_TECHNICIAN,
+            'password' => bcrypt('password'),
+        ]);
+
+        $this->staff = User::factory()->create([
+            'role' => User::ROLE_STAFF,
             'password' => bcrypt('password'),
         ]);
 
@@ -341,6 +347,39 @@ class RoleBasedAccessTest extends TestCase
     {
         $response = $this->actingAs($this->technician)->get('/work-reports/create');
         $this->assertNotEquals(403, $response->getStatusCode());
+    }
+
+    public function test_staff_can_access_work_reports_index(): void
+    {
+        $response = $this->actingAs($this->staff)->get('/work-reports');
+        $this->assertNotEquals(403, $response->getStatusCode());
+    }
+
+    public function test_staff_can_access_work_reports_create(): void
+    {
+        $response = $this->actingAs($this->staff)->get('/work-reports/create');
+        $this->assertNotEquals(403, $response->getStatusCode());
+    }
+
+    public function test_staff_cannot_access_admin_only_routes(): void
+    {
+        $adminOnlyRoutes = [
+            '/dashboard',
+            '/clients',
+            '/job-categories',
+            '/services',
+            '/baps',
+            '/basts',
+            '/invoices',
+            '/settings/company',
+            '/users',
+            '/roles',
+        ];
+
+        foreach ($adminOnlyRoutes as $route) {
+            $response = $this->actingAs($this->staff)->get($route);
+            $response->assertStatus(403);
+        }
     }
 
     public function test_admin_can_access_work_reports_index(): void

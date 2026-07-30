@@ -16,6 +16,7 @@ class User extends Authenticatable
 
     const ROLE_ADMIN = 'admin';
     const ROLE_TECHNICIAN = 'technician';
+    const ROLE_STAFF = 'staff';
 
     protected $fillable = [
         'name',
@@ -72,5 +73,15 @@ class User extends Authenticatable
     public function isTechnician(): bool
     {
         return $this->role === self::ROLE_TECHNICIAN || $this->hasRole(self::ROLE_TECHNICIAN);
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === self::ROLE_STAFF || $this->hasRole(self::ROLE_STAFF);
+    }
+
+    public function isWorkReportOperator(): bool
+    {
+        return $this->isTechnician() || $this->isStaff();
     }
 }

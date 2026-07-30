@@ -17,6 +17,7 @@ class WorkReportControllerTest extends TestCase
 
     private User $admin;
     private User $technician;
+    private User $staff;
     private User $otherTechnician;
     private Client $client;
     private JobCategory $category;
@@ -28,6 +29,7 @@ class WorkReportControllerTest extends TestCase
 
         $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $this->technician = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+        $this->staff = User::factory()->create(['role' => User::ROLE_STAFF]);
         $this->otherTechnician = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
         $this->client = Client::factory()->create(['is_active' => true]);
         $this->category = JobCategory::factory()->create();
@@ -60,6 +62,20 @@ class WorkReportControllerTest extends TestCase
         $response->assertInertia(fn ($page) =>
             $page->component('WorkReports/Index')
                 ->has('workReports.data', 2)
+        );
+    }
+
+    public function test_staff_can_view_own_reports_index(): void
+    {
+        WorkReport::factory()->create(['technician_id' => $this->staff->id]);
+        WorkReport::factory()->create(['technician_id' => $this->technician->id]);
+
+        $response = $this->actingAs($this->staff)->get('/work-reports');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) =>
+            $page->component('WorkReports/Index')
+                ->has('workReports.data', 1)
         );
     }
 
@@ -117,6 +133,18 @@ class WorkReportControllerTest extends TestCase
         );
     }
 
+    public function test_staff_can_view_create_form(): void
+    {
+        $response = $this->actingAs($this->staff)->get('/work-reports/create');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) =>
+            $page->component('WorkReports/Create')
+                ->has('clients')
+                ->has('categories')
+        );
+    }
+
     public function test_create_form_only_shows_active_clients(): void
     {
         Client::factory()->create(['is_active' => false, 'name' => 'Inactive Client']);
@@ -150,6 +178,21 @@ class WorkReportControllerTest extends TestCase
         $response->assertRedirect(route('work-reports.index'));
         $this->assertDatabaseHas('work_reports', [
             'technician_id' => $this->technician->id,
+            'status' => 'draft',
+        ]);
+    }
+
+    public function test_staff_can_store_draft_with_minimal_data(): void
+    {
+        $response = $this->actingAs($this->staff)->post('/work-reports', [
+            'client_id' => null,
+            'category_id' => null,
+            'description' => null,
+        ]);
+
+        $response->assertRedirect(route('work-reports.index'));
+        $this->assertDatabaseHas('work_reports', [
+            'technician_id' => $this->staff->id,
             'status' => 'draft',
         ]);
     }
@@ -488,6 +531,22 @@ class WorkReportControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_staff_cannot_submit_other_users_report(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'description' => 'Test',
+            'after_photos' => ['work-reports/photo1.jpg'],
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+
+        $response = $this->actingAs($this->staff)->post("/work-reports/{$report->id}/submit");
+
+        $response->assertStatus(403);
+    }
+
     // === DATA ISOLATION ===
 
     public function test_technician_only_sees_own_reports_in_index(): void
@@ -496,6 +555,18 @@ class WorkReportControllerTest extends TestCase
         WorkReport::factory()->count(2)->create(['technician_id' => $this->otherTechnician->id]);
 
         $response = $this->actingAs($this->technician)->get('/work-reports');
+
+        $response->assertInertia(fn ($page) =>
+            $page->has('workReports.data', 3)
+        );
+    }
+
+    public function test_staff_only_sees_own_reports_in_index(): void
+    {
+        WorkReport::factory()->count(3)->create(['technician_id' => $this->staff->id]);
+        WorkReport::factory()->count(2)->create(['technician_id' => $this->technician->id]);
+
+        $response = $this->actingAs($this->staff)->get('/work-reports');
 
         $response->assertInertia(fn ($page) =>
             $page->has('workReports.data', 3)

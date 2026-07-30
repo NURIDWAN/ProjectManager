@@ -36,8 +36,8 @@ class WorkReportController extends Controller
         $user = Auth::user();
         $query = WorkReport::with(['client', 'category', 'technician']);
 
-        // Technician data isolation: only see own reports
-        if ($user->isTechnician()) {
+        // Operator data isolation: technician/staff only see own reports
+        if ($user->isWorkReportOperator()) {
             $query->where('technician_id', $user->id);
         }
 
@@ -203,8 +203,8 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Technician can only view their own reports
-        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
+        // Operators can only view their own reports
+        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
@@ -233,13 +233,13 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Technician can only edit their own reports
-        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
+        // Operators can only edit their own reports
+        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        // Submitted reports cannot be edited by technician
-        if ($user->isTechnician() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
+        // Submitted reports cannot be edited by operators
+        if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
             abort(403, 'Laporan yang sudah disubmit tidak dapat diubah.');
         }
 
@@ -281,13 +281,13 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Technician can only update their own reports
-        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
+        // Operators can only update their own reports
+        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        // Submitted reports cannot be edited by technician
-        if ($user->isTechnician() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
+        // Submitted reports cannot be edited by operators
+        if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
             abort(403, 'Laporan yang sudah disubmit tidak dapat diubah.');
         }
 
@@ -382,13 +382,13 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Technician can only delete their own reports
-        if ($user->isTechnician() && (int) $work_report->technician_id !== (int) $user->id) {
+        // Operators can only delete their own reports
+        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        // Submitted reports cannot be deleted by technician
-        if ($user->isTechnician() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
+        // Submitted reports cannot be deleted by operators
+        if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
             abort(403, 'Laporan yang sudah disubmit tidak dapat dihapus.');
         }
 
@@ -416,8 +416,8 @@ class WorkReportController extends Controller
         $workReport = WorkReport::findOrFail($id);
         $user = Auth::user();
 
-        // Technician can only submit their own reports
-        if ($user->isTechnician() && (int) $workReport->technician_id !== (int) $user->id) {
+        // Operators can only submit their own reports
+        if ($user->isWorkReportOperator() && (int) $workReport->technician_id !== (int) $user->id) {
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 

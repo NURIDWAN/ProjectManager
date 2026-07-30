@@ -33,9 +33,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('services', ServiceController::class);
     });
 
-    // Work Reports (both roles - admin and technician)
-    Route::resource('work-reports', WorkReportController::class);
-    Route::post('work-reports/{id}/submit', [WorkReportController::class, 'submit'])->name('work-reports.submit');
+    // Work Reports (admin, technician, and staff)
+    Route::middleware('role:admin|technician|staff')->group(function () {
+        Route::resource('work-reports', WorkReportController::class);
+        Route::post('work-reports/{id}/submit', [WorkReportController::class, 'submit'])->name('work-reports.submit');
+    });
 
     // BAP (admin only)
     Route::middleware('role:admin')->group(function () {
