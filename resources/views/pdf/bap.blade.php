@@ -381,7 +381,7 @@
                                 @foreach($chunk as $photo)
                                 <td>
                                     @php
-                                        $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                        $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                     @endphp
                                     @if(file_exists($photoPath))
                                         <img src="{{ $photoPath }}" alt="{{ $photo->caption ?? 'Before' }}">
@@ -418,7 +418,7 @@
                                 @foreach($chunk as $photo)
                                 <td>
                                     @php
-                                        $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                        $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                     @endphp
                                     @if(file_exists($photoPath))
                                         <img src="{{ $photoPath }}" alt="{{ $photo->caption ?? 'After' }}">
@@ -525,7 +525,7 @@
                                 @foreach($chunk as $photo)
                                 <td>
                                     @php
-                                        $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                        $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                         $userCaption = str_starts_with($photo->caption ?? '', $prefix . ':') ? substr($photo->caption, strlen($prefix) + 1) : '';
                                     @endphp
                                     @if(file_exists($photoPath))
@@ -563,7 +563,7 @@
                                 @foreach($chunk as $photo)
                                 <td>
                                     @php
-                                        $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                        $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                         $userCaption = str_starts_with($photo->caption ?? '', $prefix . ':') ? substr($photo->caption, strlen($prefix) + 1) : '';
                                     @endphp
                                     @if(file_exists($photoPath))

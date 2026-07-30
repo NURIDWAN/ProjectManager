@@ -77,7 +77,7 @@
                             @foreach($chunk as $photo)
                             <td style="width: 33.33%; text-align: center; vertical-align: top; padding: 5px; border: none;">
                                 @php
-                                    $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                    $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                 @endphp
                                 @if(file_exists($photoPath))
                                     <img src="{{ $photoPath }}" style="width: 100%; max-height: 140px; object-fit: cover; border: 1px solid #ccc;" alt="{{ $photo->caption ?? 'Before' }}">
@@ -114,7 +114,7 @@
                             @foreach($chunk as $photo)
                             <td style="width: 33.33%; text-align: center; vertical-align: top; padding: 5px; border: none;">
                                 @php
-                                    $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                    $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                 @endphp
                                 @if(file_exists($photoPath))
                                     <img src="{{ $photoPath }}" style="width: 100%; max-height: 140px; object-fit: cover; border: 1px solid #ccc;" alt="{{ $photo->caption ?? 'After' }}">
@@ -217,7 +217,7 @@
                             @foreach($chunk as $photo)
                             <td style="width: 33.33%; text-align: center; vertical-align: top; padding: 5px; border: none;">
                                 @php
-                                    $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                    $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                     $userCaption = str_starts_with($photo->caption ?? '', $prefix . ':') ? substr($photo->caption, strlen($prefix) + 1) : '';
                                 @endphp
                                 @if(file_exists($photoPath))
@@ -255,7 +255,7 @@
                             @foreach($chunk as $photo)
                             <td style="width: 33.33%; text-align: center; vertical-align: top; padding: 5px; border: none;">
                                 @php
-                                    $photoPath = storage_path('app/public/' . $photo->photo_path);
+                                    $photoPath = $pdfPhotoPaths[$photo->id] ?? storage_path('app/public/' . $photo->photo_path);
                                     $userCaption = str_starts_with($photo->caption ?? '', $prefix . ':') ? substr($photo->caption, strlen($prefix) + 1) : '';
                                 @endphp
                                 @if(file_exists($photoPath))

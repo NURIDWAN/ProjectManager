@@ -20,6 +20,8 @@ use App\Services\OverdueDetectionService;
 use App\Services\OverdueDetectionServiceInterface;
 use App\Services\PdfExportService;
 use App\Services\PdfExportServiceInterface;
+use App\Services\PdfImageOptimizer;
+use App\Services\PdfImageOptimizerInterface;
 use App\Services\PresetRegistry;
 use App\Services\PresetRegistryInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -42,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(InvoiceNumberGeneratorInterface::class, InvoiceNumberGenerator::class);
         $this->app->bind(OverdueDetectionServiceInterface::class, OverdueDetectionService::class);
         $this->app->bind(PdfExportServiceInterface::class, PdfExportService::class);
+        $this->app->bind(PdfImageOptimizerInterface::class, PdfImageOptimizer::class);
         $this->app->bind(PresetRegistryInterface::class, PresetRegistry::class);
     }
 

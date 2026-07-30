@@ -207,9 +207,7 @@ class BapController extends Controller
      */
     public function previewPdf($id)
     {
-        $bap = Bap::findOrFail($id);
-
-        return $this->pdfExportService->generateBapPdf($bap->id);
+        return $this->pdfExportService->generateBapPdf((int) $id);
     }
 
     /**
@@ -217,8 +215,6 @@ class BapController extends Controller
      */
     public function exportPdf($id)
     {
-        $bap = Bap::findOrFail($id);
-
-        return $this->pdfExportService->generateBapPdf($bap->id, true);
+        return $this->pdfExportService->generateBapPdf((int) $id, true);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WorkReport;
 use App\Models\WorkReportPhoto;
 use App\Services\AcMeasurementValidatorInterface;
+use App\Services\PdfImageOptimizerInterface;
 use App\Services\PresetRegistryInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class WorkReportController extends Controller
     public function __construct(
         protected PresetRegistryInterface $presetRegistry,
         protected AcMeasurementValidatorInterface $acMeasurementValidator,
+        protected PdfImageOptimizerInterface $pdfImageOptimizer,
     ) {}
 
     /**
@@ -297,7 +299,7 @@ class WorkReportController extends Controller
             ->get();
 
         foreach ($photosToRemove as $photo) {
-            Storage::disk('public')->delete($photo->photo_path);
+            $this->deleteStoredPhoto($photo->photo_path);
         }
 
         if ($photosToRemove->isNotEmpty()) {
@@ -397,7 +399,7 @@ class WorkReportController extends Controller
         $this->deletePhotos($work_report->after_photos ?? []);
 
         foreach ($work_report->photos as $photo) {
-            Storage::disk('public')->delete($photo->photo_path);
+            $this->deleteStoredPhoto($photo->photo_path);
         }
         // The photos will be cascade-deleted by the FK constraint
 
@@ -481,6 +483,7 @@ class WorkReportController extends Controller
         if ($request->hasFile($field)) {
             foreach ($request->file($field) as $photo) {
                 $path = $photo->store('work-reports', 'public');
+                $this->pdfImageOptimizer->optimize($path);
                 $paths[] = $path;
             }
         }
@@ -564,8 +567,14 @@ class WorkReportController extends Controller
     private function deletePhotos(array $photos): void
     {
         foreach ($photos as $photo) {
-            Storage::disk('public')->delete($photo);
+            $this->deleteStoredPhoto($photo);
         }
+    }
+
+    private function deleteStoredPhoto(string $path): void
+    {
+        $this->pdfImageOptimizer->deleteDerivatives($path);
+        Storage::disk('public')->delete($path);
     }
 
     /**
@@ -633,7 +642,7 @@ class WorkReportController extends Controller
                 ->get();
 
             foreach ($photosToDelete as $photo) {
-                Storage::disk('public')->delete($photo->photo_path);
+                $this->deleteStoredPhoto($photo->photo_path);
             }
 
             if ($photosToDelete->isNotEmpty()) {
@@ -647,6 +656,7 @@ class WorkReportController extends Controller
                 $beforeCaptions = $request->input("ac_captions_before_{$i}", []);
                 foreach ($request->file("ac_photos_before_{$i}") as $sortOrder => $photo) {
                     $path = $photo->store('work-reports/ac-units', 'public');
+                    $this->pdfImageOptimizer->optimize($path);
                     $newPhotoRows[] = $this->buildAcPhotoRow(
                         $workReport,
                         WorkReportPhoto::TYPE_BEFORE,
@@ -663,6 +673,7 @@ class WorkReportController extends Controller
                 $afterCaptions = $request->input("ac_captions_after_{$i}", []);
                 foreach ($request->file("ac_photos_after_{$i}") as $sortOrder => $photo) {
                     $path = $photo->store('work-reports/ac-units', 'public');
+                    $this->pdfImageOptimizer->optimize($path);
                     $newPhotoRows[] = $this->buildAcPhotoRow(
                         $workReport,
                         WorkReportPhoto::TYPE_AFTER,

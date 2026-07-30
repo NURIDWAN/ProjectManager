@@ -196,9 +196,7 @@ class BastController extends Controller
      */
     public function previewPdf($id)
     {
-        $bast = Bast::findOrFail($id);
-
-        return $this->pdfExportService->generateBastPdf($bast->id);
+        return $this->pdfExportService->generateBastPdf((int) $id);
     }
 
     /**
@@ -206,8 +204,6 @@ class BastController extends Controller
      */
     public function exportPdf($id)
     {
-        $bast = Bast::findOrFail($id);
-
-        return $this->pdfExportService->generateBastPdf($bast->id, true);
+        return $this->pdfExportService->generateBastPdf((int) $id, true);
     }
 }
