@@ -34,7 +34,11 @@ class WorkReportController extends Controller
     public function index(Request $request): Response
     {
         $user = Auth::user();
-        $query = WorkReport::with(['client', 'category', 'technician']);
+        $query = WorkReport::with([
+            'client:id,name',
+            'category:id,name',
+            'technician:id,name',
+        ]);
 
         // Operator data isolation: technician/staff only see own reports
         if ($user->isWorkReportOperator()) {
@@ -61,12 +65,9 @@ class WorkReportController extends Controller
 
         $workReports = $query->latest()->paginate(10)->withQueryString();
 
-        // Get clients for filter dropdown
-        $clients = Client::select('id', 'name')->orderBy('name')->get();
-
         return Inertia::render('WorkReports/Index', [
             'workReports' => $workReports,
-            'clients' => $clients,
+            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'status' => $request->input('status', ''),
                 'client_id' => $request->input('client_id', ''),
@@ -87,10 +88,11 @@ class WorkReportController extends Controller
         // Validate preset identifiers against the registry and flag invalid ones
         $categories = $categories->map(function ($category) {
             $categoryArray = $category->toArray();
-            if ($category->preset_identifier && !$this->presetRegistry->has($category->preset_identifier)) {
+            if ($category->preset_identifier && ! $this->presetRegistry->has($category->preset_identifier)) {
                 Log::warning("JobCategory ID {$category->id} references unresolvable preset identifier: {$category->preset_identifier}");
                 $categoryArray['preset_identifier'] = null;
             }
+
             return $categoryArray;
         });
 
@@ -122,7 +124,7 @@ class WorkReportController extends Controller
                     $rawPresetData = $request->input('preset_data', []);
                     // FormData sends JSON as a string, decode if needed
                     $entries = is_string($rawPresetData) ? json_decode($rawPresetData, true) ?? [] : $rawPresetData;
-                    if (!empty($entries)) {
+                    if (! empty($entries)) {
                         // Throws ValidationException on failure
                         $presetData = $this->acMeasurementValidator->validate($entries);
                     }
@@ -146,24 +148,13 @@ class WorkReportController extends Controller
         $beforeCaptions = $request->input('before_captions', []);
         $afterCaptions = $request->input('after_captions', []);
 
-        foreach ($beforePhotos as $index => $path) {
-            WorkReportPhoto::create([
-                'work_report_id' => $workReport->id,
-                'type' => WorkReportPhoto::TYPE_BEFORE,
-                'photo_path' => $path,
-                'caption' => $beforeCaptions[$index] ?? null,
-                'sort_order' => $index,
-            ]);
-        }
+        $photoRows = [
+            ...$this->buildPhotoRows($workReport->id, WorkReportPhoto::TYPE_BEFORE, $beforePhotos, $beforeCaptions),
+            ...$this->buildPhotoRows($workReport->id, WorkReportPhoto::TYPE_AFTER, $afterPhotos, $afterCaptions),
+        ];
 
-        foreach ($afterPhotos as $index => $path) {
-            WorkReportPhoto::create([
-                'work_report_id' => $workReport->id,
-                'type' => WorkReportPhoto::TYPE_AFTER,
-                'photo_path' => $path,
-                'caption' => $afterCaptions[$index] ?? null,
-                'sort_order' => $index,
-            ]);
+        if ($photoRows !== []) {
+            WorkReportPhoto::insert($photoRows);
         }
 
         // Save per-unit AC photos
@@ -251,10 +242,11 @@ class WorkReportController extends Controller
         // Validate preset identifiers against the registry and flag invalid ones
         $categories = $categories->map(function ($category) {
             $categoryArray = $category->toArray();
-            if ($category->preset_identifier && !$this->presetRegistry->has($category->preset_identifier)) {
+            if ($category->preset_identifier && ! $this->presetRegistry->has($category->preset_identifier)) {
                 Log::warning("JobCategory ID {$category->id} references unresolvable preset identifier: {$category->preset_identifier}");
                 $categoryArray['preset_identifier'] = null;
             }
+
             return $categoryArray;
         });
 
@@ -297,12 +289,19 @@ class WorkReportController extends Controller
 
         // Delete removed photos from storage and DB
         $photosToRemove = $work_report->photos()
+            ->where(function ($query) {
+                $query->whereNull('caption')
+                    ->orWhere('caption', 'not like', 'ac_unit_%');
+            })
             ->whereNotIn('id', array_merge($keepBeforePhotoIds, $keepAfterPhotoIds))
             ->get();
 
         foreach ($photosToRemove as $photo) {
             Storage::disk('public')->delete($photo->photo_path);
-            $photo->delete();
+        }
+
+        if ($photosToRemove->isNotEmpty()) {
+            WorkReportPhoto::whereKey($photosToRemove->modelKeys())->delete();
         }
 
         // Upload new photos
@@ -316,24 +315,25 @@ class WorkReportController extends Controller
         $maxBeforeSort = $work_report->beforePhotoItems()->max('sort_order') ?? -1;
         $maxAfterSort = $work_report->afterPhotoItems()->max('sort_order') ?? -1;
 
-        foreach ($newBeforePhotos as $index => $path) {
-            WorkReportPhoto::create([
-                'work_report_id' => $work_report->id,
-                'type' => WorkReportPhoto::TYPE_BEFORE,
-                'photo_path' => $path,
-                'caption' => $beforeCaptions[$index] ?? null,
-                'sort_order' => $maxBeforeSort + $index + 1,
-            ]);
-        }
+        $newPhotoRows = [
+            ...$this->buildPhotoRows(
+                $work_report->id,
+                WorkReportPhoto::TYPE_BEFORE,
+                $newBeforePhotos,
+                $beforeCaptions,
+                $maxBeforeSort + 1,
+            ),
+            ...$this->buildPhotoRows(
+                $work_report->id,
+                WorkReportPhoto::TYPE_AFTER,
+                $newAfterPhotos,
+                $afterCaptions,
+                $maxAfterSort + 1,
+            ),
+        ];
 
-        foreach ($newAfterPhotos as $index => $path) {
-            WorkReportPhoto::create([
-                'work_report_id' => $work_report->id,
-                'type' => WorkReportPhoto::TYPE_AFTER,
-                'photo_path' => $path,
-                'caption' => $afterCaptions[$index] ?? null,
-                'sort_order' => $maxAfterSort + $index + 1,
-            ]);
+        if ($newPhotoRows !== []) {
+            WorkReportPhoto::insert($newPhotoRows);
         }
 
         // Also update legacy JSON fields for backward compat
@@ -350,7 +350,7 @@ class WorkReportController extends Controller
                     $rawPresetData = $request->input('preset_data', []);
                     // FormData sends JSON as a string, decode if needed
                     $entries = is_string($rawPresetData) ? json_decode($rawPresetData, true) ?? [] : $rawPresetData;
-                    if (!empty($entries)) {
+                    if (! empty($entries)) {
                         // Throws ValidationException on failure
                         $presetData = $this->acMeasurementValidator->validate($entries);
                     }
@@ -448,9 +448,9 @@ class WorkReportController extends Controller
         $category = $workReport->category;
         $isAcPreset = $category && $category->preset_identifier === 'ac_maintenance';
 
-        if (!$isAcPreset) {
+        if (! $isAcPreset) {
             $hasAfterPhotos = $workReport->afterPhotoItems()->exists();
-            if (!$hasAfterPhotos) {
+            if (! $hasAfterPhotos) {
                 // Fallback: check legacy JSON field
                 $afterPhotosLegacy = $workReport->after_photos;
                 if (empty($afterPhotosLegacy) || count($afterPhotosLegacy) === 0) {
@@ -489,15 +489,73 @@ class WorkReportController extends Controller
     }
 
     /**
-     * Remove photos from storage that are no longer referenced.
+     * Build rows for a bulk photo insert.
      */
-    private function cleanupRemovedPhotos(array $oldPhotos, array $newPhotos): void
-    {
-        $removedPhotos = array_diff($oldPhotos, $newPhotos);
+    private function buildPhotoRows(
+        int $workReportId,
+        string $type,
+        array $paths,
+        array $captions,
+        int $sortOffset = 0,
+    ): array {
+        $timestamp = now();
 
-        foreach ($removedPhotos as $photo) {
-            Storage::disk('public')->delete($photo);
+        return array_map(function (string $path, int $index) use (
+            $workReportId,
+            $type,
+            $captions,
+            $sortOffset,
+            $timestamp,
+        ) {
+            return [
+                'work_report_id' => $workReportId,
+                'type' => $type,
+                'photo_path' => $path,
+                'caption' => $captions[$index] ?? null,
+                'sort_order' => $sortOffset + $index,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+        }, $paths, array_keys($paths));
+    }
+
+    /**
+     * Build a row for a per-unit AC photo bulk insert.
+     */
+    private function buildAcPhotoRow(
+        WorkReport $workReport,
+        string $type,
+        string $path,
+        int $unitIndex,
+        int $sortOrder,
+        string $caption,
+    ): array {
+        $timestamp = now();
+
+        return [
+            'work_report_id' => $workReport->id,
+            'type' => $type,
+            'photo_path' => $path,
+            'caption' => "ac_unit_{$unitIndex}:{$caption}",
+            'sort_order' => $sortOrder,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ];
+    }
+
+    /**
+     * Parse the internal AC unit marker from a photo caption.
+     */
+    private function parseAcPhotoCaption(?string $caption): ?array
+    {
+        if (! $caption || ! preg_match('/^ac_unit_(\d+)(?::(.*))?$/s', $caption, $matches)) {
+            return null;
         }
+
+        return [
+            'unit_index' => (int) $matches[1],
+            'caption' => array_key_exists(2, $matches) ? $matches[2] : null,
+        ];
     }
 
     /**
@@ -517,45 +575,28 @@ class WorkReportController extends Controller
     private function getAcUnitPhotos(WorkReport $workReport): array
     {
         $presetData = $workReport->preset_data;
-        if (empty($presetData) || !is_array($presetData)) {
+        if (empty($presetData) || ! is_array($presetData)) {
             return [];
         }
 
         $entryCount = count($presetData);
-        $result = [];
+        $result = array_fill(0, $entryCount, ['before' => [], 'after' => []]);
 
-        for ($i = 0; $i < $entryCount; $i++) {
-            $prefix = "ac_unit_{$i}";
+        $workReport->loadMissing(['beforePhotoItems', 'afterPhotoItems']);
 
-            $beforePhotos = WorkReportPhoto::where('work_report_id', $workReport->id)
-                ->where('type', WorkReportPhoto::TYPE_BEFORE)
-                ->where('caption', 'LIKE', $prefix . '%')
-                ->orderBy('sort_order')
-                ->get()
-                ->map(function ($p) use ($prefix) {
-                    $userCaption = str_starts_with($p->caption, $prefix . ':')
-                        ? substr($p->caption, strlen($prefix) + 1)
-                        : null;
-                    return ['id' => $p->id, 'photo_url' => $p->photo_url, 'caption' => $userCaption];
-                })
-                ->values()
-                ->toArray();
+        foreach ([$workReport->beforePhotoItems, $workReport->afterPhotoItems] as $photos) {
+            foreach ($photos as $photo) {
+                $parsedCaption = $this->parseAcPhotoCaption($photo->caption);
+                if (! $parsedCaption || $parsedCaption['unit_index'] >= $entryCount) {
+                    continue;
+                }
 
-            $afterPhotos = WorkReportPhoto::where('work_report_id', $workReport->id)
-                ->where('type', WorkReportPhoto::TYPE_AFTER)
-                ->where('caption', 'LIKE', $prefix . '%')
-                ->orderBy('sort_order')
-                ->get()
-                ->map(function ($p) use ($prefix) {
-                    $userCaption = str_starts_with($p->caption, $prefix . ':')
-                        ? substr($p->caption, strlen($prefix) + 1)
-                        : null;
-                    return ['id' => $p->id, 'photo_url' => $p->photo_url, 'caption' => $userCaption];
-                })
-                ->values()
-                ->toArray();
-
-            $result[] = ['before' => $beforePhotos, 'after' => $afterPhotos];
+                $result[$parsedCaption['unit_index']][$photo->type][] = [
+                    'id' => $photo->id,
+                    'photo_url' => $photo->photo_url,
+                    'caption' => $parsedCaption['caption'],
+                ];
+            }
         }
 
         return $result;
@@ -568,52 +609,52 @@ class WorkReportController extends Controller
     private function saveAcUnitPhotos(Request $request, WorkReport $workReport, bool $isUpdate = false): void
     {
         $presetData = $workReport->preset_data;
-        if (empty($presetData) || !is_array($presetData)) {
+        if (empty($presetData) || ! is_array($presetData)) {
             return;
         }
 
         $entryCount = count($presetData);
+        $newPhotoRows = [];
 
-        for ($i = 0; $i < $entryCount; $i++) {
-            // On update: remove AC unit photos that are no longer kept
-            if ($isUpdate) {
-                $existingBeforeIds = [];
-                $existingAfterIds = [];
-
-                $rawBefore = $request->input("ac_existing_before_{$i}", []);
-                if (is_array($rawBefore)) {
-                    $existingBeforeIds = array_map('intval', $rawBefore);
-                }
-                $rawAfter = $request->input("ac_existing_after_{$i}", []);
-                if (is_array($rawAfter)) {
-                    $existingAfterIds = array_map('intval', $rawAfter);
-                }
-
-                // Delete AC unit photos not in the kept list
-                $photosToDelete = WorkReportPhoto::where('work_report_id', $workReport->id)
-                    ->where('caption', 'LIKE', "ac_unit_{$i}%")
-                    ->whereNotIn('id', array_merge($existingBeforeIds, $existingAfterIds))
-                    ->get();
-
-                foreach ($photosToDelete as $photo) {
-                    Storage::disk('public')->delete($photo->photo_path);
-                    $photo->delete();
+        if ($isUpdate) {
+            $keptPhotoIds = [];
+            for ($i = 0; $i < $entryCount; $i++) {
+                foreach (["ac_existing_before_{$i}", "ac_existing_after_{$i}"] as $field) {
+                    $ids = $request->input($field, []);
+                    if (is_array($ids)) {
+                        $keptPhotoIds = [...$keptPhotoIds, ...array_map('intval', $ids)];
+                    }
                 }
             }
 
+            $photosToDelete = WorkReportPhoto::where('work_report_id', $workReport->id)
+                ->where('caption', 'like', 'ac_unit_%')
+                ->when($keptPhotoIds !== [], fn ($query) => $query->whereNotIn('id', $keptPhotoIds))
+                ->get();
+
+            foreach ($photosToDelete as $photo) {
+                Storage::disk('public')->delete($photo->photo_path);
+            }
+
+            if ($photosToDelete->isNotEmpty()) {
+                WorkReportPhoto::whereKey($photosToDelete->modelKeys())->delete();
+            }
+        }
+
+        for ($i = 0; $i < $entryCount; $i++) {
             // Save new before photos for this unit
             if ($request->hasFile("ac_photos_before_{$i}")) {
                 $beforeCaptions = $request->input("ac_captions_before_{$i}", []);
                 foreach ($request->file("ac_photos_before_{$i}") as $sortOrder => $photo) {
                     $path = $photo->store('work-reports/ac-units', 'public');
-                    $userCaption = $beforeCaptions[$sortOrder] ?? '';
-                    WorkReportPhoto::create([
-                        'work_report_id' => $workReport->id,
-                        'type' => WorkReportPhoto::TYPE_BEFORE,
-                        'photo_path' => $path,
-                        'caption' => "ac_unit_{$i}:" . $userCaption,
-                        'sort_order' => $sortOrder,
-                    ]);
+                    $newPhotoRows[] = $this->buildAcPhotoRow(
+                        $workReport,
+                        WorkReportPhoto::TYPE_BEFORE,
+                        $path,
+                        $i,
+                        $sortOrder,
+                        $beforeCaptions[$sortOrder] ?? '',
+                    );
                 }
             }
 
@@ -622,16 +663,20 @@ class WorkReportController extends Controller
                 $afterCaptions = $request->input("ac_captions_after_{$i}", []);
                 foreach ($request->file("ac_photos_after_{$i}") as $sortOrder => $photo) {
                     $path = $photo->store('work-reports/ac-units', 'public');
-                    $userCaption = $afterCaptions[$sortOrder] ?? '';
-                    WorkReportPhoto::create([
-                        'work_report_id' => $workReport->id,
-                        'type' => WorkReportPhoto::TYPE_AFTER,
-                        'photo_path' => $path,
-                        'caption' => "ac_unit_{$i}:" . $userCaption,
-                        'sort_order' => $sortOrder,
-                    ]);
+                    $newPhotoRows[] = $this->buildAcPhotoRow(
+                        $workReport,
+                        WorkReportPhoto::TYPE_AFTER,
+                        $path,
+                        $i,
+                        $sortOrder,
+                        $afterCaptions[$sortOrder] ?? '',
+                    );
                 }
             }
+        }
+
+        if ($newPhotoRows !== []) {
+            WorkReportPhoto::insert($newPhotoRows);
         }
     }
 }

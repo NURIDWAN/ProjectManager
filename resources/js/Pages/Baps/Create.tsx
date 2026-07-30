@@ -61,6 +61,7 @@ export default function Create({ clients, workReports, selectedClientId }: Props
         router.get('/baps/create', v ? { client_id: v } : {}, {
             preserveState: true,
             replace: true,
+            only: ['workReports', 'selectedClientId'],
         });
     };
 

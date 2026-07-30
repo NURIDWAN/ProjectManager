@@ -29,7 +29,7 @@ class BapController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Bap::with('client');
+        $query = Bap::with('client:id,name');
 
         // Filter by status
         if ($status = $request->input('status')) {
@@ -43,11 +43,9 @@ class BapController extends Controller
 
         $baps = $query->latest()->paginate(10)->withQueryString();
 
-        $clients = Client::select('id', 'name')->orderBy('name')->get();
-
         return Inertia::render('Baps/Index', [
             'baps' => $baps,
-            'clients' => $clients,
+            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'status' => $request->input('status', ''),
                 'client_id' => $request->input('client_id', ''),
@@ -60,21 +58,18 @@ class BapController extends Controller
      */
     public function create(Request $request): Response
     {
-        $clients = Client::active()->select('id', 'name')->orderBy('name')->get();
-
-        // Get submitted work reports, optionally filtered by client
-        $workReportsQuery = WorkReport::with(['client', 'category'])
-            ->where('status', WorkReport::STATUS_SUBMITTED);
-
-        if ($clientId = $request->input('client_id')) {
-            $workReportsQuery->where('client_id', $clientId);
-        }
-
-        $workReports = $workReportsQuery->latest()->get();
-
         return Inertia::render('Baps/Create', [
-            'clients' => $clients,
-            'workReports' => $workReports,
+            'clients' => fn () => Client::active()->select('id', 'name')->orderBy('name')->get(),
+            'workReports' => function () use ($request) {
+                return WorkReport::with(['client:id,name', 'category:id,name'])
+                    ->where('status', WorkReport::STATUS_SUBMITTED)
+                    ->when(
+                        $request->input('client_id'),
+                        fn ($query, $clientId) => $query->where('client_id', $clientId),
+                    )
+                    ->latest()
+                    ->get();
+            },
             'selectedClientId' => $request->input('client_id', ''),
         ]);
     }

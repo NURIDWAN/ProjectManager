@@ -91,6 +91,7 @@ export default function Index({ baps, clients, filters }: Props) {
         router.get('/baps', cleanParams, {
             preserveState: true,
             replace: true,
+            only: ['baps', 'filters'],
         });
     };
 
@@ -261,7 +262,10 @@ export default function Index({ baps, clients, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => {
                                             if (link.url) {
-                                                router.get(link.url, {}, { preserveState: true });
+                                                router.get(link.url, {}, {
+                                                    preserveState: true,
+                                                    only: ['baps', 'filters'],
+                                                });
                                             }
                                         }}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
@@ -277,7 +281,10 @@ export default function Index({ baps, clients, filters }: Props) {
                                     disabled={!baps.links[0]?.url}
                                     onClick={() => {
                                         if (baps.links[0]?.url) {
-                                            router.get(baps.links[0].url, {}, { preserveState: true });
+                                            router.get(baps.links[0].url, {}, {
+                                                preserveState: true,
+                                                only: ['baps', 'filters'],
+                                            });
                                         }
                                     }}
                                 >
@@ -293,7 +300,10 @@ export default function Index({ baps, clients, filters }: Props) {
                                     onClick={() => {
                                         const lastLink = baps.links[baps.links.length - 1];
                                         if (lastLink?.url) {
-                                            router.get(lastLink.url, {}, { preserveState: true });
+                                            router.get(lastLink.url, {}, {
+                                                preserveState: true,
+                                                only: ['baps', 'filters'],
+                                            });
                                         }
                                     }}
                                 >

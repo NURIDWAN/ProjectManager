@@ -90,6 +90,7 @@ export default function Index({ workReports, clients, filters }: Props) {
         router.get('/work-reports', cleanParams, {
             preserveState: true,
             replace: true,
+            only: ['workReports', 'filters'],
         });
     };
 
@@ -341,7 +342,10 @@ export default function Index({ workReports, clients, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => {
                                             if (link.url) {
-                                                router.get(link.url, {}, { preserveState: true });
+                                                router.get(link.url, {}, {
+                                                    preserveState: true,
+                                                    only: ['workReports', 'filters'],
+                                                });
                                             }
                                         }}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
@@ -357,7 +361,10 @@ export default function Index({ workReports, clients, filters }: Props) {
                                     disabled={!workReports.links[0]?.url}
                                     onClick={() => {
                                         if (workReports.links[0]?.url) {
-                                            router.get(workReports.links[0].url, {}, { preserveState: true });
+                                            router.get(workReports.links[0].url, {}, {
+                                                preserveState: true,
+                                                only: ['workReports', 'filters'],
+                                            });
                                         }
                                     }}
                                 >
@@ -373,7 +380,10 @@ export default function Index({ workReports, clients, filters }: Props) {
                                     onClick={() => {
                                         const lastLink = workReports.links[workReports.links.length - 1];
                                         if (lastLink?.url) {
-                                            router.get(lastLink.url, {}, { preserveState: true });
+                                            router.get(lastLink.url, {}, {
+                                                preserveState: true,
+                                                only: ['workReports', 'filters'],
+                                            });
                                         }
                                     }}
                                 >

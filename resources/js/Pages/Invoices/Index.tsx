@@ -93,6 +93,7 @@ export default function Index({ invoices, clients, filters }: Props) {
         router.get('/invoices', cleanParams, {
             preserveState: true,
             replace: true,
+            only: ['invoices', 'filters'],
         });
     };
 
@@ -287,7 +288,10 @@ export default function Index({ invoices, clients, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => {
                                             if (link.url) {
-                                                router.get(link.url, {}, { preserveState: true });
+                                                router.get(link.url, {}, {
+                                                    preserveState: true,
+                                                    only: ['invoices', 'filters'],
+                                                });
                                             }
                                         }}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
@@ -303,7 +307,10 @@ export default function Index({ invoices, clients, filters }: Props) {
                                     disabled={!invoices.links[0]?.url}
                                     onClick={() => {
                                         if (invoices.links[0]?.url) {
-                                            router.get(invoices.links[0].url, {}, { preserveState: true });
+                                            router.get(invoices.links[0].url, {}, {
+                                                preserveState: true,
+                                                only: ['invoices', 'filters'],
+                                            });
                                         }
                                     }}
                                 >
@@ -319,7 +326,10 @@ export default function Index({ invoices, clients, filters }: Props) {
                                     onClick={() => {
                                         const lastLink = invoices.links[invoices.links.length - 1];
                                         if (lastLink?.url) {
-                                            router.get(lastLink.url, {}, { preserveState: true });
+                                            router.get(lastLink.url, {}, {
+                                                preserveState: true,
+                                                only: ['invoices', 'filters'],
+                                            });
                                         }
                                     }}
                                 >

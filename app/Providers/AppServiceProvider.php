@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use App\Services\AcRecapAggregator;
-use App\Services\AcRecapAggregatorInterface;
 use App\Services\AcMeasurementValidator;
 use App\Services\AcMeasurementValidatorInterface;
+use App\Services\AcRecapAggregator;
+use App\Services\AcRecapAggregatorInterface;
 use App\Services\BapNumberGenerator;
 use App\Services\BapNumberGeneratorInterface;
 use App\Services\BastNumberGenerator;
@@ -22,6 +22,7 @@ use App\Services\PdfExportService;
 use App\Services\PdfExportServiceInterface;
 use App\Services\PresetRegistry;
 use App\Services\PresetRegistryInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
@@ -49,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Model::preventLazyLoading(! $this->app->isProduction());
+
         Vite::prefetch(concurrency: 3);
     }
 }

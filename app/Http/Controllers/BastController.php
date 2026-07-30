@@ -28,7 +28,10 @@ class BastController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Bast::with(['client', 'bap']);
+        $query = Bast::with([
+            'client:id,name',
+            'bap:id,nomor_surat',
+        ]);
 
         // Filter by client
         if ($clientId = $request->input('client_id')) {
@@ -37,11 +40,9 @@ class BastController extends Controller
 
         $basts = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
 
-        $clients = Client::select('id', 'name')->orderBy('name')->get();
-
         return Inertia::render('Basts/Index', [
             'basts' => $basts,
-            'clients' => $clients,
+            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'client_id' => $request->input('client_id', ''),
             ],
@@ -209,5 +210,4 @@ class BastController extends Controller
 
         return $this->pdfExportService->generateBastPdf($bast->id, true);
     }
-
 }

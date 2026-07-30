@@ -1,10 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@fontsource-variable/inter";
 
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
 
 @theme inline {
   --color-background: oklch(1 0 0);

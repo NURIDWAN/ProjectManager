@@ -63,6 +63,7 @@ export default function Index({ basts, clients, filters }: Props) {
         router.get('/basts', cleanParams, {
             preserveState: true,
             replace: true,
+            only: ['basts', 'filters'],
         });
     };
 
@@ -218,7 +219,10 @@ export default function Index({ basts, clients, filters }: Props) {
                                         disabled={!link.url}
                                         onClick={() => {
                                             if (link.url) {
-                                                router.get(link.url, {}, { preserveState: true });
+                                                router.get(link.url, {}, {
+                                                    preserveState: true,
+                                                    only: ['basts', 'filters'],
+                                                });
                                             }
                                         }}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
@@ -234,7 +238,10 @@ export default function Index({ basts, clients, filters }: Props) {
                                     disabled={!basts.links[0]?.url}
                                     onClick={() => {
                                         if (basts.links[0]?.url) {
-                                            router.get(basts.links[0].url, {}, { preserveState: true });
+                                            router.get(basts.links[0].url, {}, {
+                                                preserveState: true,
+                                                only: ['basts', 'filters'],
+                                            });
                                         }
                                     }}
                                 >
@@ -250,7 +257,10 @@ export default function Index({ basts, clients, filters }: Props) {
                                     onClick={() => {
                                         const lastLink = basts.links[basts.links.length - 1];
                                         if (lastLink?.url) {
-                                            router.get(lastLink.url, {}, { preserveState: true });
+                                            router.get(lastLink.url, {}, {
+                                                preserveState: true,
+                                                only: ['basts', 'filters'],
+                                            });
                                         }
                                     }}
                                 >

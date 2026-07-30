@@ -6,6 +6,7 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Models\Client;
 use App\Models\CompanySetting;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Service;
 use App\Services\InvoiceCalculationServiceInterface;
 use App\Services\InvoiceNumberGeneratorInterface;
@@ -13,6 +14,7 @@ use App\Services\PdfExportServiceInterface;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,7 +33,10 @@ class InvoiceController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Invoice::with(['client', 'bap']);
+        $query = Invoice::with([
+            'client:id,name',
+            'bap:id,nomor_surat',
+        ]);
 
         // Filter by status
         if ($status = $request->input('status')) {
@@ -45,11 +50,9 @@ class InvoiceController extends Controller
 
         $invoices = $query->latest()->paginate(10)->withQueryString();
 
-        $clients = Client::select('id', 'name')->orderBy('name')->get();
-
         return Inertia::render('Invoices/Index', [
             'invoices' => $invoices,
-            'clients' => $clients,
+            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'status' => $request->input('status', ''),
                 'client_id' => $request->input('client_id', ''),
@@ -105,33 +108,28 @@ class InvoiceController extends Controller
         // Grand total = subtotal - discount + tax + shipping
         $grandTotal = round($subtotal - $discountTotal + $ppn + $shippingCost, 2);
 
-        $invoice = Invoice::create([
-            'invoice_number' => $invoiceNumber,
-            'bap_id' => null,
-            'client_id' => $request->input('client_id'),
-            'subtotal' => $subtotal,
-            'discount_total' => $discountTotal,
-            'tax_percent' => $taxPercent,
-            'ppn' => $ppn,
-            'shipping_cost' => $shippingCost,
-            'grand_total' => $grandTotal,
-            'status' => Invoice::STATUS_DRAFT,
-            'due_date' => $request->input('due_date'),
-            'paid_at' => null,
-            'notes' => $request->input('notes'),
-            'terms' => $request->input('terms'),
-        ]);
-
-        // Create invoice items
-        foreach ($items as $index => $item) {
-            $invoice->items()->create([
-                'service_id' => $item['service_id'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'discount_percent' => $item['discount_percent'] ?? 0,
-                'line_total' => $lineTotals[$index],
+        $invoice = DB::transaction(function () use ($request, $invoiceNumber, $items, $lineTotals, $subtotal, $discountTotal, $taxPercent, $ppn, $shippingCost, $grandTotal) {
+            $invoice = Invoice::create([
+                'invoice_number' => $invoiceNumber,
+                'bap_id' => null,
+                'client_id' => $request->input('client_id'),
+                'subtotal' => $subtotal,
+                'discount_total' => $discountTotal,
+                'tax_percent' => $taxPercent,
+                'ppn' => $ppn,
+                'shipping_cost' => $shippingCost,
+                'grand_total' => $grandTotal,
+                'status' => Invoice::STATUS_DRAFT,
+                'due_date' => $request->input('due_date'),
+                'paid_at' => null,
+                'notes' => $request->input('notes'),
+                'terms' => $request->input('terms'),
             ]);
-        }
+
+            $this->insertInvoiceItems($invoice, $items, $lineTotals);
+
+            return $invoice;
+        });
 
         return Redirect::route('invoices.show', $invoice->id)
             ->with('success', 'Invoice berhasil dibuat.');
@@ -196,31 +194,23 @@ class InvoiceController extends Controller
         $ppn = round(($subtotal - $discountTotal) * ($taxPercent / 100), 2);
         $grandTotal = round($subtotal - $discountTotal + $ppn + $shippingCost, 2);
 
-        $invoice->update([
-            'client_id' => $request->input('client_id'),
-            'subtotal' => $subtotal,
-            'discount_total' => $discountTotal,
-            'tax_percent' => $taxPercent,
-            'ppn' => $ppn,
-            'shipping_cost' => $shippingCost,
-            'grand_total' => $grandTotal,
-            'due_date' => $request->input('due_date'),
-            'notes' => $request->input('notes'),
-            'terms' => $request->input('terms'),
-        ]);
-
-        // Sync items: delete existing and recreate
-        $invoice->items()->delete();
-
-        foreach ($items as $index => $item) {
-            $invoice->items()->create([
-                'service_id' => $item['service_id'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'discount_percent' => $item['discount_percent'] ?? 0,
-                'line_total' => $lineTotals[$index],
+        DB::transaction(function () use ($request, $invoice, $items, $lineTotals, $subtotal, $discountTotal, $taxPercent, $ppn, $shippingCost, $grandTotal) {
+            $invoice->update([
+                'client_id' => $request->input('client_id'),
+                'subtotal' => $subtotal,
+                'discount_total' => $discountTotal,
+                'tax_percent' => $taxPercent,
+                'ppn' => $ppn,
+                'shipping_cost' => $shippingCost,
+                'grand_total' => $grandTotal,
+                'due_date' => $request->input('due_date'),
+                'notes' => $request->input('notes'),
+                'terms' => $request->input('terms'),
             ]);
-        }
+
+            $invoice->items()->delete();
+            $this->insertInvoiceItems($invoice, $items, $lineTotals);
+        });
 
         return Redirect::route('invoices.show', $invoice->id)
             ->with('success', 'Invoice berhasil diperbarui.');
@@ -281,7 +271,7 @@ class InvoiceController extends Controller
         $invoice = Invoice::findOrFail($id);
 
         // Only unpaid or overdue invoices can be marked as paid
-        if (!in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_OVERDUE])) {
+        if (! in_array($invoice->status, [Invoice::STATUS_UNPAID, Invoice::STATUS_OVERDUE])) {
             abort(422, 'Hanya invoice berstatus "unpaid" atau "overdue" yang dapat ditandai sebagai "paid".');
         }
 
@@ -312,5 +302,33 @@ class InvoiceController extends Controller
         $invoice = Invoice::findOrFail($id);
 
         return $this->pdfExportService->generateInvoicePdf($invoice->id, true);
+    }
+
+    /**
+     * Insert all invoice items with one database statement.
+     */
+    private function insertInvoiceItems(Invoice $invoice, array $items, array $lineTotals): void
+    {
+        if ($items === []) {
+            return;
+        }
+
+        $timestamp = now();
+        $rows = [];
+
+        foreach ($items as $index => $item) {
+            $rows[] = [
+                'invoice_id' => $invoice->id,
+                'service_id' => $item['service_id'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                'discount_percent' => $item['discount_percent'] ?? 0,
+                'line_total' => $lineTotals[$index],
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+        }
+
+        InvoiceItem::insert($rows);
     }
 }

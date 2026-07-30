@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Client;
 use App\Models\JobCategory;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Models\WorkReportPhoto;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -16,10 +19,15 @@ class WorkReportControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $technician;
+
     private User $staff;
+
     private User $otherTechnician;
+
     private Client $client;
+
     private JobCategory $category;
 
     protected function setUp(): void
@@ -45,9 +53,8 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->technician)->get('/work-reports');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Index')
-                ->has('workReports.data', 1)
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
+            ->has('workReports.data', 1)
         );
     }
 
@@ -59,10 +66,23 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->admin)->get('/work-reports');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Index')
-                ->has('workReports.data', 2)
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
+            ->has('workReports.data', 2)
         );
+    }
+
+    public function test_partial_index_reload_does_not_include_static_client_options(): void
+    {
+        $response = $this->actingAs($this->admin)->get('/work-reports', [
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'WorkReports/Index',
+            'X-Inertia-Partial-Data' => 'workReports,filters',
+            'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonMissingPath('props.clients')
+            ->assertJsonPath('component', 'WorkReports/Index');
     }
 
     public function test_staff_can_view_own_reports_index(): void
@@ -73,9 +93,8 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->staff)->get('/work-reports');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Index')
-                ->has('workReports.data', 1)
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
+            ->has('workReports.data', 1)
         );
     }
 
@@ -92,9 +111,8 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->admin)->get('/work-reports?status=draft');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Index')
-                ->has('workReports.data', 1)
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
+            ->has('workReports.data', 1)
         );
     }
 
@@ -113,9 +131,8 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->admin)->get("/work-reports?client_id={$this->client->id}");
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Index')
-                ->has('workReports.data', 1)
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
+            ->has('workReports.data', 1)
         );
     }
 
@@ -126,10 +143,9 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->technician)->get('/work-reports/create');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Create')
-                ->has('clients')
-                ->has('categories')
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Create')
+            ->has('clients')
+            ->has('categories')
         );
     }
 
@@ -138,10 +154,60 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->staff)->get('/work-reports/create');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Create')
-                ->has('clients')
-                ->has('categories')
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Create')
+            ->has('clients')
+            ->has('categories')
+        );
+    }
+
+    public function test_ac_unit_photos_use_constant_query_count(): void
+    {
+        $category = JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+        $presetData = array_fill(0, 5, [
+            'lokasi' => 'Ruang Server',
+            'tipe_ac' => 'Split',
+            'merek' => 'Daikin',
+            'kapasitas' => 1,
+        ]);
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'client_id' => $this->client->id,
+            'category_id' => $category->id,
+            'preset_data' => $presetData,
+        ]);
+
+        foreach (range(0, 4) as $unitIndex) {
+            WorkReportPhoto::create([
+                'work_report_id' => $report->id,
+                'type' => WorkReportPhoto::TYPE_BEFORE,
+                'photo_path' => "work-reports/ac-units/before-{$unitIndex}.jpg",
+                'caption' => "ac_unit_{$unitIndex}:Before {$unitIndex}",
+                'sort_order' => 0,
+            ]);
+            WorkReportPhoto::create([
+                'work_report_id' => $report->id,
+                'type' => WorkReportPhoto::TYPE_AFTER,
+                'photo_path' => "work-reports/ac-units/after-{$unitIndex}.jpg",
+                'caption' => "ac_unit_{$unitIndex}:After {$unitIndex}",
+                'sort_order' => 0,
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($this->technician)->get("/work-reports/{$report->id}");
+
+        $photoQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query) => str_contains($query['query'], 'work_report_photos'));
+
+        $response->assertStatus(200);
+        $this->assertCount(2, $photoQueries);
+        $response->assertInertia(fn ($page) => $page->has('workReport.ac_unit_photos', 5)
+            ->where('workReport.ac_unit_photos.4.before.0.caption', 'Before 4')
+            ->where('workReport.ac_unit_photos.4.after.0.caption', 'After 4')
         );
     }
 
@@ -152,16 +218,16 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->technician)->get('/work-reports/create');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Create')
-                ->where('clients', function ($clients) {
-                    foreach ($clients as $client) {
-                        if ($client['name'] === 'Inactive Client') {
-                            return false;
-                        }
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Create')
+            ->where('clients', function ($clients) {
+                foreach ($clients as $client) {
+                    if ($client['name'] === 'Inactive Client') {
+                        return false;
                     }
-                    return true;
-                })
+                }
+
+                return true;
+            })
         );
     }
 
@@ -271,8 +337,7 @@ class WorkReportControllerTest extends TestCase
         $response = $this->actingAs($this->technician)->get("/work-reports/{$report->id}");
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('WorkReports/Show')
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Show')
         );
     }
 
@@ -556,8 +621,7 @@ class WorkReportControllerTest extends TestCase
 
         $response = $this->actingAs($this->technician)->get('/work-reports');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('workReports.data', 3)
+        $response->assertInertia(fn ($page) => $page->has('workReports.data', 3)
         );
     }
 
@@ -568,8 +632,7 @@ class WorkReportControllerTest extends TestCase
 
         $response = $this->actingAs($this->staff)->get('/work-reports');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('workReports.data', 3)
+        $response->assertInertia(fn ($page) => $page->has('workReports.data', 3)
         );
     }
 }

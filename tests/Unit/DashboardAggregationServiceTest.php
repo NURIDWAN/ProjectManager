@@ -10,6 +10,8 @@ use App\Services\DashboardAggregationService;
 use App\Services\DashboardAggregationServiceInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class DashboardAggregationServiceTest extends TestCase
@@ -21,7 +23,8 @@ class DashboardAggregationServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new DashboardAggregationService();
+        Cache::clear();
+        $this->service = new DashboardAggregationService;
     }
 
     // --- getKpiData tests ---
@@ -44,6 +47,20 @@ class DashboardAggregationServiceTest extends TestCase
         $this->assertEquals(0, $result['work_reports_this_month']);
         $this->assertEquals(0.0, $result['total_unpaid_amount']);
         $this->assertEquals(0, $result['overdue_count']);
+    }
+
+    public function test_dashboard_results_are_cached_for_repeated_calls(): void
+    {
+        $this->service->getKpiData();
+        $this->service->getMonthlyRevenue();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->service->getKpiData();
+        $this->service->getMonthlyRevenue();
+
+        $this->assertCount(0, DB::getQueryLog());
     }
 
     public function test_total_active_clients_counts_only_active(): void

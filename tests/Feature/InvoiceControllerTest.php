@@ -11,6 +11,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\WorkReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class InvoiceControllerTest extends TestCase
@@ -18,10 +19,15 @@ class InvoiceControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $technician;
+
     private Client $client;
+
     private JobCategory $category;
+
     private Bap $approvedBap;
+
     private Service $service;
 
     protected function setUp(): void
@@ -87,6 +93,33 @@ class InvoiceControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_store_bulk_inserts_invoice_items_with_one_statement(): void
+    {
+        $items = array_fill(0, 5, [
+            'service_id' => $this->service->id,
+            'quantity' => 1,
+            'unit_price' => 500000,
+            'discount_percent' => 0,
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => $items,
+        ]);
+
+        $itemInsertQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query) => str_contains($query['query'], 'insert into "invoice_items"')
+                || str_contains($query['query'], 'insert into `invoice_items`')
+            );
+
+        $response->assertRedirect();
+        $this->assertCount(1, $itemInsertQueries);
+        $this->assertDatabaseCount('invoice_items', 5);
+    }
+
     // === INDEX ===
 
     public function test_index_shows_invoices_list(): void
@@ -142,7 +175,7 @@ class InvoiceControllerTest extends TestCase
             'invoice_number' => 'INV/0002/01/2024',
         ]);
 
-        $response = $this->actingAs($this->admin)->get('/invoices?client_id=' . $this->client->id);
+        $response = $this->actingAs($this->admin)->get('/invoices?client_id='.$this->client->id);
 
         $this->assertNotEquals(403, $response->getStatusCode());
     }
@@ -166,7 +199,7 @@ class InvoiceControllerTest extends TestCase
 
     public function test_create_auto_populates_items_when_bap_id_provided(): void
     {
-        $response = $this->actingAs($this->admin)->get('/invoices/create?bap_id=' . $this->approvedBap->id);
+        $response = $this->actingAs($this->admin)->get('/invoices/create?bap_id='.$this->approvedBap->id);
 
         $this->assertNotEquals(403, $response->getStatusCode());
     }
