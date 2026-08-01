@@ -237,6 +237,100 @@ class InvoiceControllerTest extends TestCase
         $this->assertEquals(900000, (float) $item->line_total);
     }
 
+    public function test_store_saves_work_start_and_end_dates(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'work_start_date' => '2026-07-01',
+            'work_end_date' => '2026-07-31',
+            'items' => [[
+                'service_id' => $this->service->id,
+                'quantity' => 1,
+                'unit_price' => 500000,
+                'discount_percent' => 0,
+            ]],
+        ]);
+
+        $response->assertRedirect();
+        $invoice = Invoice::latest('id')->firstOrFail();
+        $this->assertSame('2026-07-01', $invoice->work_start_date->format('Y-m-d'));
+        $this->assertSame('2026-07-31', $invoice->work_end_date->format('Y-m-d'));
+    }
+
+    public function test_store_rejects_work_end_date_before_start_date(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'work_start_date' => '2026-07-31',
+            'work_end_date' => '2026-07-01',
+            'items' => [[
+                'service_id' => $this->service->id,
+                'quantity' => 1,
+                'unit_price' => 500000,
+                'discount_percent' => 0,
+            ]],
+        ]);
+
+        $response->assertSessionHasErrors('work_end_date');
+    }
+
+    public function test_store_accepts_manual_item_without_saving_it_to_master_data(): void
+    {
+        $serviceCount = Service::count();
+
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => [[
+                'source' => 'manual',
+                'service_id' => null,
+                'description' => 'Material Tambahan',
+                'unit' => 'lot',
+                'manual_type' => Service::TYPE_PRODUCT,
+                'save_to_master' => false,
+                'quantity' => 2,
+                'unit_price' => 250000,
+                'discount_percent' => 0,
+            ]],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame($serviceCount, Service::count());
+        $this->assertDatabaseHas('invoice_items', [
+            'service_id' => null,
+            'description' => 'Material Tambahan',
+            'unit' => 'lot',
+            'line_total' => 500000,
+        ]);
+    }
+
+    public function test_store_can_save_manual_item_to_master_data(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => [[
+                'source' => 'manual',
+                'service_id' => null,
+                'description' => 'Jasa Inspeksi Tambahan',
+                'unit' => 'kunjungan',
+                'manual_type' => Service::TYPE_SERVICE,
+                'save_to_master' => true,
+                'quantity' => 1,
+                'unit_price' => 750000,
+                'discount_percent' => 0,
+            ]],
+        ]);
+
+        $response->assertRedirect();
+        $service = Service::where('name', 'Jasa Inspeksi Tambahan')->firstOrFail();
+        $this->assertSame(Service::TYPE_SERVICE, $service->type);
+        $this->assertSame('kunjungan', $service->unit);
+        $this->assertDatabaseHas('invoice_items', [
+            'service_id' => $service->id,
+            'description' => 'Jasa Inspeksi Tambahan',
+            'unit' => 'kunjungan',
+        ]);
+    }
+
     public function test_store_generates_auto_invoice_number(): void
     {
         $this->actingAs($this->admin)->post('/invoices', [

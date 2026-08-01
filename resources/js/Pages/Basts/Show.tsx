@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PdfPreviewModal } from '@/Components/PdfPreviewModal';
+import AcRecapTable, { AcRecapRow } from '@/Components/AcRecapTable';
+import WorkReportDocumentation from '@/Components/WorkReportDocumentation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,9 +43,10 @@ interface WorkReport {
     status: 'draft' | 'submitted';
     submitted_at: string | null;
     created_at: string;
-    category?: { id: number; name: string } | null;
+    category?: { id: number; name: string; preset_identifier?: string | null } | null;
     technician?: { id: number; name: string } | null;
     client?: { id: number; name: string } | null;
+    preset_data?: Record<string, unknown>[] | null;
     before_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
     after_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
 }
@@ -52,9 +55,10 @@ interface Props {
     bast: Bast;
     workReports: WorkReport[];
     workItems: WorkItem[];
+    acRecapRows?: AcRecapRow[];
 }
 
-export default function Show({ bast, workReports, workItems }: Props) {
+export default function Show({ bast, workReports, workItems, acRecapRows = [] }: Props) {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
@@ -414,6 +418,23 @@ export default function Show({ bast, workReports, workItems }: Props) {
                         </Card>
                     </div>
                 </div>
+
+                {acRecapRows.length > 0 && (
+                    <Card className="overflow-hidden">
+                        <CardContent className="overflow-x-auto p-4">
+                            <AcRecapTable
+                                rows={acRecapRows}
+                                clientName={bast.client?.name ?? undefined}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
+
+                <WorkReportDocumentation
+                    reports={workReports}
+                    clientName={bast.client?.name}
+                    clientAddress={bast.client?.address}
+                />
             </div>
 
             {/* Delete Confirmation Dialog */}

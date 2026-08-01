@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -121,6 +122,8 @@ class InvoiceController extends Controller
                 'grand_total' => $grandTotal,
                 'status' => Invoice::STATUS_DRAFT,
                 'due_date' => $request->input('due_date'),
+                'work_start_date' => $request->input('work_start_date'),
+                'work_end_date' => $request->input('work_end_date'),
                 'paid_at' => null,
                 'notes' => $request->input('notes'),
                 'terms' => $request->input('terms'),
@@ -204,6 +207,8 @@ class InvoiceController extends Controller
                 'shipping_cost' => $shippingCost,
                 'grand_total' => $grandTotal,
                 'due_date' => $request->input('due_date'),
+                'work_start_date' => $request->input('work_start_date'),
+                'work_end_date' => $request->input('work_end_date'),
                 'notes' => $request->input('notes'),
                 'terms' => $request->input('terms'),
             ]);
@@ -317,9 +322,27 @@ class InvoiceController extends Controller
         $rows = [];
 
         foreach ($items as $index => $item) {
+            $service = null;
+            $isManual = ($item['source'] ?? 'master') === 'manual';
+
+            if ($isManual && ($item['save_to_master'] ?? false)) {
+                $service = Service::create([
+                    'code' => $this->generateManualServiceCode(),
+                    'name' => trim($item['description']),
+                    'unit' => trim($item['unit']),
+                    'price' => $item['unit_price'],
+                    'type' => $item['manual_type'] ?? Service::TYPE_PRODUCT,
+                    'is_active' => true,
+                ]);
+            } elseif (! $isManual) {
+                $service = Service::findOrFail($item['service_id']);
+            }
+
             $rows[] = [
                 'invoice_id' => $invoice->id,
-                'service_id' => $item['service_id'],
+                'service_id' => $service?->id,
+                'description' => $isManual ? trim($item['description']) : $service->name,
+                'unit' => $isManual ? trim($item['unit']) : $service->unit,
                 'quantity' => $item['quantity'],
                 'unit_price' => $item['unit_price'],
                 'discount_percent' => $item['discount_percent'] ?? 0,
@@ -330,5 +353,14 @@ class InvoiceController extends Controller
         }
 
         InvoiceItem::insert($rows);
+    }
+
+    private function generateManualServiceCode(): string
+    {
+        do {
+            $code = 'INV-'.now()->format('ymd').'-'.Str::upper(Str::random(6));
+        } while (Service::where('code', $code)->exists());
+
+        return $code;
     }
 }

@@ -6,7 +6,9 @@ use App\Models\Bap;
 use App\Models\Bast;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\JobCategory;
 use App\Models\User;
+use App\Models\WorkReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -58,6 +60,52 @@ class PdfEndpointTest extends TestCase
         ]);
 
         $this->assertPdfResponses("/basts/{$bast->id}");
+    }
+
+    public function test_bap_and_bast_pdf_render_current_ac_measurement_shape(): void
+    {
+        $technician = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+        $category = JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+        $report = WorkReport::factory()->submitted()->create([
+            'client_id' => $this->client->id,
+            'category_id' => $category->id,
+            'technician_id' => $technician->id,
+            'preset_data' => [[
+                'lokasi' => 'Ruang Server',
+                'tipe_ac' => 'Cassette',
+                'merek' => 'Daikin',
+                'kapasitas' => 2,
+                'suhu_before' => 25,
+                'suhu_after' => 18,
+                'ampere_input_count' => 2,
+                'ampere_before_r' => 2.1,
+                'ampere_before_s' => 2.2,
+                'ampere_after_r' => 1.8,
+                'ampere_after_s' => 1.9,
+                'freon_before' => 120,
+                'freon_after' => null,
+            ]],
+        ]);
+        $bap = Bap::factory()->approved()->create([
+            'client_id' => $this->client->id,
+            'work_report_ids' => [$report->id],
+        ]);
+        $bast = Bast::create([
+            'bap_id' => $bap->id,
+            'document_number' => 'BAST/AC/07/2026',
+            'tanggal' => '2026-07-31',
+            'client_id' => $this->client->id,
+            'work_items' => [],
+        ]);
+
+        foreach (["/baps/{$bap->id}/pdf-preview", "/basts/{$bast->id}/pdf-preview"] as $url) {
+            $response = $this->actingAs($this->admin)->get($url);
+
+            $response->assertOk()->assertHeader('content-type', 'application/pdf');
+            $this->assertStringStartsWith('%PDF-', $response->getContent());
+        }
     }
 
     public function test_bap_pdf_cache_is_reused_and_invalidated_when_source_data_changes(): void

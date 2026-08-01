@@ -45,7 +45,9 @@ import {
 
 interface InvoiceItem {
     id: number;
-    service_id: number;
+    service_id: number | null;
+    description: string | null;
+    unit: string | null;
     quantity: string;
     unit_price: string;
     discount_percent: string;
@@ -70,6 +72,8 @@ interface Invoice {
     shipping_cost: string;
     grand_total: string;
     due_date: string | null;
+    work_start_date: string | null;
+    work_end_date: string | null;
     status: 'draft' | 'unpaid' | 'overdue' | 'paid';
     paid_at: string | null;
     notes: string | null;
@@ -305,6 +309,18 @@ export default function Show({ invoice }: Props) {
                                     {invoice.due_date ? formatDate(invoice.due_date) : '-'}
                                 </p>
                             </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Mulai Pekerjaan</p>
+                                <p className="text-sm">
+                                    {invoice.work_start_date ? formatDate(invoice.work_start_date) : '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Selesai Pekerjaan</p>
+                                <p className="text-sm">
+                                    {invoice.work_end_date ? formatDate(invoice.work_end_date) : '-'}
+                                </p>
+                            </div>
                             {invoice.paid_at && (
                                 <div>
                                     <p className="text-sm font-medium text-muted-foreground">Tanggal Bayar</p>
@@ -343,7 +359,7 @@ export default function Show({ invoice }: Props) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[40px]">#</TableHead>
+                                        <TableHead className="w-[48px] text-center">No</TableHead>
                                         <TableHead>Jasa/Produk</TableHead>
                                         <TableHead className="w-[80px]">Satuan</TableHead>
                                         <TableHead className="w-[80px] text-right">Qty</TableHead>
@@ -356,14 +372,14 @@ export default function Show({ invoice }: Props) {
                                     {invoice.items && invoice.items.length > 0 ? (
                                         invoice.items.map((item, index) => (
                                             <TableRow key={item.id}>
-                                                <TableCell className="text-muted-foreground">
+                                                <TableCell className="text-center text-muted-foreground">
                                                     {index + 1}
                                                 </TableCell>
                                                 <TableCell className="font-medium">
-                                                    {item.service?.name ?? '-'}
+                                                    {item.description || item.service?.name || '-'}
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground">
-                                                    {item.service?.unit ?? '-'}
+                                                    {item.unit || item.service?.unit || '-'}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     {parseFloat(item.quantity)}

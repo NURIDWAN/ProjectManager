@@ -28,12 +28,9 @@ export interface AcMeasurementEntry {
     tipe_ac: 'Splitduct' | 'Cassette' | 'Splitwall' | '';
     merek: string;
     kapasitas: number | '';
-    suhu_before_r: number | '';
-    suhu_before_s: number | '';
-    suhu_before_t: number | '';
-    suhu_after_r: number | '';
-    suhu_after_s: number | '';
-    suhu_after_t: number | '';
+    suhu_before: number | '';
+    suhu_after: number | '';
+    ampere_input_count: 1 | 2 | 3;
     ampere_before_r: number | '';
     ampere_before_s: number | '';
     ampere_before_t: number | '';
@@ -54,17 +51,14 @@ export interface AcMeasurementFormProps {
     onPhotosChange?: (photos: AcEntryPhotos[]) => void;
 }
 
-const EMPTY_ENTRY: AcMeasurementEntry = {
+export const EMPTY_ENTRY: AcMeasurementEntry = {
     lokasi: '',
     tipe_ac: '',
     merek: '',
     kapasitas: '',
-    suhu_before_r: '',
-    suhu_before_s: '',
-    suhu_before_t: '',
-    suhu_after_r: '',
-    suhu_after_s: '',
-    suhu_after_t: '',
+    suhu_before: '',
+    suhu_after: '',
+    ampere_input_count: 1,
     ampere_before_r: '',
     ampere_before_s: '',
     ampere_before_t: '',
@@ -74,6 +68,30 @@ const EMPTY_ENTRY: AcMeasurementEntry = {
     freon_before: '',
     freon_after: '',
     keterangan: '',
+};
+
+const firstMeasurement = (...values: unknown[]): number | '' => {
+    const value = values.find((candidate) => candidate !== '' && candidate !== null && candidate !== undefined);
+    return typeof value === 'number' ? value : '';
+};
+
+export const normalizeAcMeasurementEntry = (raw: Record<string, unknown>): AcMeasurementEntry => {
+    const highestUsedPhase = (['t', 's', 'r'] as const).find((phase) =>
+        [`ampere_before_${phase}`, `ampere_after_${phase}`].some((key) =>
+            raw[key] !== '' && raw[key] !== null && raw[key] !== undefined
+        )
+    );
+    const inferredCount = highestUsedPhase === 't' ? 3 : highestUsedPhase === 's' ? 2 : 1;
+    const requestedCount = Number(raw.ampere_input_count);
+    const ampereInputCount = ([1, 2, 3].includes(requestedCount) ? requestedCount : inferredCount) as 1 | 2 | 3;
+
+    return {
+        ...EMPTY_ENTRY,
+        ...raw,
+        suhu_before: firstMeasurement(raw.suhu_before, raw.suhu_before_r, raw.suhu_before_s, raw.suhu_before_t),
+        suhu_after: firstMeasurement(raw.suhu_after, raw.suhu_after_r, raw.suhu_after_s, raw.suhu_after_t),
+        ampere_input_count: ampereInputCount,
+    } as AcMeasurementEntry;
 };
 
 const TIPE_AC_OPTIONS = ['Splitduct', 'Cassette', 'Splitwall'] as const;
@@ -100,6 +118,24 @@ export default function AcMeasurementForm({
     const updateEntry = (index: number, field: keyof AcMeasurementEntry, value: string | number) => {
         const updated = [...entries];
         updated[index] = { ...updated[index], [field]: value };
+        onChange(updated);
+    };
+
+    const updateAmpereInputCount = (index: number, value: string) => {
+        const count = Number(value) as 1 | 2 | 3;
+        const updated = [...entries];
+        const entry = { ...updated[index], ampere_input_count: count };
+
+        if (count < 3) {
+            entry.ampere_before_t = '';
+            entry.ampere_after_t = '';
+        }
+        if (count < 2) {
+            entry.ampere_before_s = '';
+            entry.ampere_after_s = '';
+        }
+
+        updated[index] = entry;
         onChange(updated);
     };
 
@@ -306,56 +342,34 @@ export default function AcMeasurementForm({
                         </h5>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <p className="mb-1 text-xs font-medium text-gray-500">Before</p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {(['suhu_before_r', 'suhu_before_s', 'suhu_before_t'] as const).map(
-                                        (field) => (
-                                            <div key={field}>
-                                                <input
-                                                    type="number"
-                                                    value={entry[field]}
-                                                    onChange={handleNumericChange(index, field)}
-                                                    disabled={disabled}
-                                                    className={inputClassName}
-                                                    placeholder={field.slice(-1).toUpperCase()}
-                                                    min={-10}
-                                                    max={100}
-                                                    step={0.1}
-                                                />
-                                                <InputError
-                                                    message={getError(index, field)}
-                                                    className="mt-1"
-                                                />
-                                            </div>
-                                        )
-                                    )}
-                                </div>
+                                <p className="mb-1 text-xs font-medium text-gray-500">Before (Opsional)</p>
+                                <input
+                                    type="number"
+                                    value={entry.suhu_before}
+                                    onChange={handleNumericChange(index, 'suhu_before')}
+                                    disabled={disabled}
+                                    className={inputClassName}
+                                    placeholder="°C"
+                                    min={-10}
+                                    max={100}
+                                    step={0.1}
+                                />
+                                <InputError message={getError(index, 'suhu_before')} className="mt-1" />
                             </div>
                             <div>
-                                <p className="mb-1 text-xs font-medium text-gray-500">After</p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {(['suhu_after_r', 'suhu_after_s', 'suhu_after_t'] as const).map(
-                                        (field) => (
-                                            <div key={field}>
-                                                <input
-                                                    type="number"
-                                                    value={entry[field]}
-                                                    onChange={handleNumericChange(index, field)}
-                                                    disabled={disabled}
-                                                    className={inputClassName}
-                                                    placeholder={field.slice(-1).toUpperCase()}
-                                                    min={-10}
-                                                    max={100}
-                                                    step={0.1}
-                                                />
-                                                <InputError
-                                                    message={getError(index, field)}
-                                                    className="mt-1"
-                                                />
-                                            </div>
-                                        )
-                                    )}
-                                </div>
+                                <p className="mb-1 text-xs font-medium text-gray-500">After (Opsional)</p>
+                                <input
+                                    type="number"
+                                    value={entry.suhu_after}
+                                    onChange={handleNumericChange(index, 'suhu_after')}
+                                    disabled={disabled}
+                                    className={inputClassName}
+                                    placeholder="°C"
+                                    min={-10}
+                                    max={100}
+                                    step={0.1}
+                                />
+                                <InputError message={getError(index, 'suhu_after')} className="mt-1" />
                             </div>
                         </div>
                     </div>
@@ -365,11 +379,27 @@ export default function AcMeasurementForm({
                         <h5 className="mb-2 text-sm font-medium text-gray-600">
                             Ampere (A)
                         </h5>
+                        <div className="mb-3 max-w-xs">
+                            <InputLabel value="Jumlah Input Ampere" />
+                            <select
+                                value={entry.ampere_input_count}
+                                onChange={(event) => updateAmpereInputCount(index, event.target.value)}
+                                disabled={disabled}
+                                className={selectClassName}
+                            >
+                                <option value={1}>1 input (R)</option>
+                                <option value={2}>2 input (R, S)</option>
+                                <option value={3}>3 input (R, S, T)</option>
+                            </select>
+                            <InputError message={getError(index, 'ampere_input_count')} className="mt-1" />
+                        </div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <p className="mb-1 text-xs font-medium text-gray-500">Before</p>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {(['ampere_before_r', 'ampere_before_s', 'ampere_before_t'] as const).map(
+                                    {(['ampere_before_r', 'ampere_before_s', 'ampere_before_t'] as const)
+                                        .slice(0, entry.ampere_input_count)
+                                        .map(
                                         (field) => (
                                             <div key={field}>
                                                 <input
@@ -395,7 +425,9 @@ export default function AcMeasurementForm({
                             <div>
                                 <p className="mb-1 text-xs font-medium text-gray-500">After</p>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {(['ampere_after_r', 'ampere_after_s', 'ampere_after_t'] as const).map(
+                                    {(['ampere_after_r', 'ampere_after_s', 'ampere_after_t'] as const)
+                                        .slice(0, entry.ampere_input_count)
+                                        .map(
                                         (field) => (
                                             <div key={field}>
                                                 <input
@@ -428,7 +460,7 @@ export default function AcMeasurementForm({
                         </h5>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <p className="mb-1 text-xs font-medium text-gray-500">Before</p>
+                                <p className="mb-1 text-xs font-medium text-gray-500">Before (Opsional)</p>
                                 <input
                                     type="number"
                                     value={entry.freon_before}
@@ -446,7 +478,7 @@ export default function AcMeasurementForm({
                                 />
                             </div>
                             <div>
-                                <p className="mb-1 text-xs font-medium text-gray-500">After</p>
+                                <p className="mb-1 text-xs font-medium text-gray-500">After (Opsional)</p>
                                 <input
                                     type="number"
                                     value={entry.freon_after}

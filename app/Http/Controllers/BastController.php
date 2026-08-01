@@ -7,6 +7,7 @@ use App\Models\Bap;
 use App\Models\Bast;
 use App\Models\Client;
 use App\Models\WorkReport;
+use App\Services\AcRecapAggregatorInterface;
 use App\Services\BastNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;
 use Carbon\Carbon;
@@ -20,7 +21,8 @@ class BastController extends Controller
 {
     public function __construct(
         private BastNumberGeneratorInterface $numberGenerator,
-        private PdfExportServiceInterface $pdfExportService
+        private PdfExportServiceInterface $pdfExportService,
+        private AcRecapAggregatorInterface $acRecapAggregator,
     ) {}
 
     /**
@@ -108,7 +110,7 @@ class BastController extends Controller
         $bast = Bast::with(['client', 'bap'])->findOrFail($id);
 
         // Load work reports from BAP's work_report_ids (if BAP exists)
-        $workReports = [];
+        $workReports = collect();
         if ($bast->bap) {
             $workReports = WorkReport::with(['client', 'category', 'technician', 'beforePhotoItems', 'afterPhotoItems'])
                 ->whereIn('id', $bast->bap->work_report_ids ?? [])
@@ -117,11 +119,13 @@ class BastController extends Controller
 
         // Use stored work items (manual input)
         $workItems = $bast->work_items ?? [];
+        $acRecapRows = $this->acRecapAggregator->aggregate($workReports);
 
         return Inertia::render('Basts/Show', [
             'bast' => $bast,
             'workReports' => $workReports,
             'workItems' => $workItems,
+            'acRecapRows' => $acRecapRows,
         ]);
     }
 

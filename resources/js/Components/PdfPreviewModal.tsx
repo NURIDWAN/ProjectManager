@@ -32,7 +32,7 @@ export function PdfPreviewModal({ open, onOpenChange, url, title }: PdfPreviewMo
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent
                 showCloseButton={false}
-                className="flex h-[90vh] w-[95vw] max-w-[1200px] flex-col gap-0 overflow-hidden p-0"
+                className="flex h-[92vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[96vw] 2xl:max-w-[1600px]"
             >
                 <DialogTitle className="sr-only">{title ?? 'Preview PDF'}</DialogTitle>
                 <DialogDescription className="sr-only">

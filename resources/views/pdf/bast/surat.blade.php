@@ -148,39 +148,24 @@
     <p>Demikian Berita Acara Penyelesaian Pekerjaan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
 </div>
 
-{{-- Signature Area --}}
+{{-- Signature Area: hanya Pihak Kedua dan Pihak Pertama --}}
 <table style="width: 100%; border: none; page-break-inside: avoid; margin-top: 30px;">
-    {{-- Header Row: Pihak Kedua (left) and Pihak Pertama (right) --}}
     <tr>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 0 10px;">
+        <td style="width: 50%; text-align: center; vertical-align: top; border: none; padding: 0 20px;">
             <p style="font-size: 11px; margin: 0;"><strong><u>Pihak Kedua</u></strong></p>
-            <p style="font-size: 11px; margin: 2px 0 0 0; font-weight: bold;">{{ $settings['company_name'] ?? 'PT. Vida Sinergi Service Indonesia' }}</p>
+            <p style="font-size: 11px; margin: 3px 0 0; font-weight: bold;">{{ $settings['company_name'] ?? '-' }}</p>
         </td>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 0 10px;">
+        <td style="width: 50%; text-align: center; vertical-align: top; border: none; padding: 0 20px;">
             <p style="font-size: 11px; margin: 0;"><strong><u>Pihak Pertama</u></strong></p>
-            <p style="font-size: 11px; margin: 2px 0 0 0; font-weight: bold;">{{ $client->name ?? '-' }}</p>
+            <p style="font-size: 11px; margin: 3px 0 0; font-weight: bold;">{{ $client->name ?? '-' }}</p>
         </td>
     </tr>
-    {{-- Spacer --}}
-    <tr><td colspan="2" style="border: none; height: 30px;"></td></tr>
-    {{-- Signature Row 1 --}}
     <tr>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 5px 10px;">
-            <p style="font-size: 11px; margin: 0;">Project Coordinator &nbsp;: &nbsp;(……………………..)</p>
-        </td>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 5px 10px;">
-            <p style="font-size: 11px; margin: 0;">Maintenance Manager &nbsp;&nbsp;: (……………………..)</p>
-        </td>
+        <td style="height: 70px; border: none;"></td>
+        <td style="height: 70px; border: none;"></td>
     </tr>
-    {{-- Spacer --}}
-    <tr><td colspan="2" style="border: none; height: 30px;"></td></tr>
-    {{-- Signature Row 2 --}}
     <tr>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 5px 10px;">
-            <p style="font-size: 11px; margin: 0;">Operational Manager : &nbsp;(……………………..)</p>
-        </td>
-        <td style="width: 50%; vertical-align: top; border: none; padding: 5px 10px;">
-            <p style="font-size: 11px; margin: 0;">Chief Engineering &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: (……………………..)</p>
-        </td>
+        <td style="text-align: center; border: none; padding: 0 20px; font-size: 11px;">(........................................)</td>
+        <td style="text-align: center; border: none; padding: 0 20px; font-size: 11px;">(........................................)</td>
     </tr>
 </table>

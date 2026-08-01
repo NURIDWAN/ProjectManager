@@ -363,20 +363,33 @@
         </table>
     </div>
 
+    @if($invoice->work_start_date || $invoice->work_end_date)
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
+        <tr>
+            <td style="width: 25%; border: 1px solid #ddd; background: #f7f7f7; padding: 7px 10px; font-weight: bold;">Tanggal Mulai Pekerjaan</td>
+            <td style="width: 25%; border: 1px solid #ddd; padding: 7px 10px;">{{ $invoice->work_start_date ? $invoice->work_start_date->translatedFormat('d F Y') : '-' }}</td>
+            <td style="width: 25%; border: 1px solid #ddd; background: #f7f7f7; padding: 7px 10px; font-weight: bold;">Tanggal Selesai Pekerjaan</td>
+            <td style="width: 25%; border: 1px solid #ddd; padding: 7px 10px;">{{ $invoice->work_end_date ? $invoice->work_end_date->translatedFormat('d F Y') : '-' }}</td>
+        </tr>
+    </table>
+    @endif
+
     {{-- Items Table --}}
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 45%;">Deskripsi</th>
+                <th style="width: 6%;">No</th>
+                <th style="width: 39%;">Deskripsi</th>
                 <th style="width: 10%;">Jml</th>
                 <th style="width: 22%;">Harga Satuan</th>
                 <th style="width: 23%;">Sub Total</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($items as $item)
+            @foreach($items as $index => $item)
                 <tr>
-                    <td>{{ $item->service->name ?? '-' }}</td>
+                    <td class="center">{{ $index + 1 }}</td>
+                    <td>{{ $item->description ?: ($item->service->name ?? '-') }}</td>
                     <td class="center">{{ number_format($item->quantity, 0, ',', '.') }}</td>
                     <td class="number">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
                     <td class="number">{{ number_format($item->line_total, 0, ',', '.') }}</td>
@@ -385,6 +398,7 @@
             {{-- Empty rows to fill table visually (like the image) --}}
             @for($i = count($items); $i < 5; $i++)
                 <tr class="empty-row">
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>

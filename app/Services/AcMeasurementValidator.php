@@ -27,6 +27,7 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
      */
     public function validate(array $entries): array
     {
+        $entries = array_map(fn ($entry) => $this->normalizeEntry($entry), $entries);
         $this->validateEntryCount($entries);
 
         $validator = Validator::make(
@@ -40,6 +41,54 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
         }
 
         return $validator->validated()['entries'];
+    }
+
+    /**
+     * Normalize legacy temperature fields and infer the Ampere input count.
+     */
+    private function normalizeEntry(mixed $entry): mixed
+    {
+        if (! is_array($entry)) {
+            return $entry;
+        }
+
+        foreach (['before', 'after'] as $timing) {
+            $newKey = "suhu_{$timing}";
+            if (! array_key_exists($newKey, $entry)) {
+                foreach (['r', 's', 't'] as $phase) {
+                    $legacyKey = "{$newKey}_{$phase}";
+                    if (array_key_exists($legacyKey, $entry) && $entry[$legacyKey] !== '' && $entry[$legacyKey] !== null) {
+                        $entry[$newKey] = $entry[$legacyKey];
+                        break;
+                    }
+                }
+                $entry[$newKey] ??= null;
+            }
+        }
+
+        if (! array_key_exists('ampere_input_count', $entry) || $entry['ampere_input_count'] === null || $entry['ampere_input_count'] === '') {
+            $entry['ampere_input_count'] = 1;
+            foreach (['t' => 3, 's' => 2, 'r' => 1] as $phase => $count) {
+                if (($entry["ampere_before_{$phase}"] ?? null) !== null && ($entry["ampere_before_{$phase}"] ?? '') !== ''
+                    || ($entry["ampere_after_{$phase}"] ?? null) !== null && ($entry["ampere_after_{$phase}"] ?? '') !== '') {
+                    $entry['ampere_input_count'] = $count;
+                    break;
+                }
+            }
+        } else {
+            $entry['ampere_input_count'] = (int) $entry['ampere_input_count'];
+        }
+
+        if ($entry['ampere_input_count'] >= 1 && $entry['ampere_input_count'] < 3) {
+            $entry['ampere_before_t'] = null;
+            $entry['ampere_after_t'] = null;
+        }
+        if ($entry['ampere_input_count'] >= 1 && $entry['ampere_input_count'] < 2) {
+            $entry['ampere_before_s'] = null;
+            $entry['ampere_after_s'] = null;
+        }
+
+        return $entry;
     }
 
     /**
@@ -82,14 +131,13 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
             $rules["{$prefix}.merek"] = ['required', 'string', 'max:100'];
             $rules["{$prefix}.kapasitas"] = ['required', 'numeric', 'between:0.5,30'];
 
-            // Suhu fields (6 total: before/after × R/S/T) - R/S/T are optional
+            // Suhu fields (one value each for before and after)
             foreach (['before', 'after'] as $timing) {
-                foreach (['r', 's', 't'] as $phase) {
-                    $rules["{$prefix}.suhu_{$timing}_{$phase}"] = ['nullable', 'numeric', 'between:-10,100'];
-                }
+                $rules["{$prefix}.suhu_{$timing}"] = ['nullable', 'numeric', 'between:-10,100'];
             }
 
-            // Ampere fields (6 total: before/after × R/S/T) - R/S/T are optional
+            // Ampere fields (before/after × selected R/S/T inputs)
+            $rules["{$prefix}.ampere_input_count"] = ['required', 'integer', 'in:1,2,3'];
             foreach (['before', 'after'] as $timing) {
                 foreach (['r', 's', 't'] as $phase) {
                     $rules["{$prefix}.ampere_{$timing}_{$phase}"] = ['nullable', 'numeric', 'between:0,200'];
@@ -97,8 +145,8 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
             }
 
             // Freon fields (2 total: before/after)
-            $rules["{$prefix}.freon_before"] = ['required', 'numeric', 'between:0,800'];
-            $rules["{$prefix}.freon_after"] = ['required', 'numeric', 'between:0,800'];
+            $rules["{$prefix}.freon_before"] = ['nullable', 'numeric', 'between:0,800'];
+            $rules["{$prefix}.freon_after"] = ['nullable', 'numeric', 'between:0,800'];
 
             // Keterangan (optional)
             $rules["{$prefix}.keterangan"] = ['nullable', 'string', 'max:1000'];
@@ -123,18 +171,10 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
             'entries.*.merek.max' => 'Merek maksimal 100 karakter',
             'entries.*.kapasitas.required' => 'Kapasitas wajib diisi',
             'entries.*.kapasitas.between' => 'Kapasitas harus antara 0.5 dan 30 PK',
-            'entries.*.suhu_before_r.required' => 'Suhu before R wajib diisi',
-            'entries.*.suhu_before_r.between' => 'Suhu before R harus antara -10 dan 100°C',
-            'entries.*.suhu_before_s.required' => 'Suhu before S wajib diisi',
-            'entries.*.suhu_before_s.between' => 'Suhu before S harus antara -10 dan 100°C',
-            'entries.*.suhu_before_t.required' => 'Suhu before T wajib diisi',
-            'entries.*.suhu_before_t.between' => 'Suhu before T harus antara -10 dan 100°C',
-            'entries.*.suhu_after_r.required' => 'Suhu after R wajib diisi',
-            'entries.*.suhu_after_r.between' => 'Suhu after R harus antara -10 dan 100°C',
-            'entries.*.suhu_after_s.required' => 'Suhu after S wajib diisi',
-            'entries.*.suhu_after_s.between' => 'Suhu after S harus antara -10 dan 100°C',
-            'entries.*.suhu_after_t.required' => 'Suhu after T wajib diisi',
-            'entries.*.suhu_after_t.between' => 'Suhu after T harus antara -10 dan 100°C',
+            'entries.*.suhu_before.between' => 'Suhu before harus antara -10 dan 100°C',
+            'entries.*.suhu_after.between' => 'Suhu after harus antara -10 dan 100°C',
+            'entries.*.ampere_input_count.required' => 'Jumlah input Ampere wajib dipilih',
+            'entries.*.ampere_input_count.in' => 'Jumlah input Ampere harus antara 1 dan 3',
             'entries.*.ampere_before_r.required' => 'Ampere before R wajib diisi',
             'entries.*.ampere_before_r.between' => 'Ampere before R harus antara 0 dan 200A',
             'entries.*.ampere_before_s.required' => 'Ampere before S wajib diisi',
@@ -147,9 +187,7 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
             'entries.*.ampere_after_s.between' => 'Ampere after S harus antara 0 dan 200A',
             'entries.*.ampere_after_t.required' => 'Ampere after T wajib diisi',
             'entries.*.ampere_after_t.between' => 'Ampere after T harus antara 0 dan 200A',
-            'entries.*.freon_before.required' => 'Tekanan freon before wajib diisi',
             'entries.*.freon_before.between' => 'Tekanan freon before harus antara 0 dan 800 PSI',
-            'entries.*.freon_after.required' => 'Tekanan freon after wajib diisi',
             'entries.*.freon_after.between' => 'Tekanan freon after harus antara 0 dan 800 PSI',
             'entries.*.keterangan.max' => 'Keterangan maksimal 1000 karakter',
         ];

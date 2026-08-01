@@ -16,20 +16,17 @@ export interface AcRecapRow {
     tipe_ac: string;
     merek: string;
     kapasitas: number;
-    suhu_before_r: number;
-    suhu_before_s: number;
-    suhu_before_t: number;
-    suhu_after_r: number;
-    suhu_after_s: number;
-    suhu_after_t: number;
-    ampere_before_r: number;
-    ampere_before_s: number;
-    ampere_before_t: number;
-    ampere_after_r: number;
-    ampere_after_s: number;
-    ampere_after_t: number;
-    freon_before: number;
-    freon_after: number;
+    suhu_before: number | null;
+    suhu_after: number | null;
+    ampere_input_count: 1 | 2 | 3;
+    ampere_before_r: number | null;
+    ampere_before_s: number | null;
+    ampere_before_t: number | null;
+    ampere_after_r: number | null;
+    ampere_after_s: number | null;
+    ampere_after_t: number | null;
+    freon_before: number | null;
+    freon_after: number | null;
     keterangan: string | null;
 }
 
@@ -50,6 +47,24 @@ export default function AcRecapTable({ rows, title, clientName }: AcRecapTablePr
 
     const stickyColumnClass = 'sticky left-0 z-10 bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]';
     const mobileClass = isMobile ? 'text-xs p-1' : '';
+    const displayMeasurement = (value: number | null | undefined) =>
+        value === null || value === undefined ? '-' : value;
+    const phases = ['r', 's', 't'] as const;
+    const hasMeasurement = (value: number | null | undefined) =>
+        value !== null && value !== undefined;
+    const getAmpere = (
+        row: AcRecapRow,
+        timing: 'before' | 'after',
+        phase: typeof phases[number],
+    ) => row[`ampere_${timing}_${phase}` as keyof AcRecapRow] as number | null;
+    const beforePhases = phases.filter((phase) =>
+        rows.some((row) => hasMeasurement(getAmpere(row, 'before', phase)))
+    );
+    const afterPhases = phases.filter((phase) =>
+        rows.some((row) => hasMeasurement(getAmpere(row, 'after', phase)))
+    );
+    const hasAmpere = beforePhases.length > 0 || afterPhases.length > 0;
+    const headerRowSpan = hasAmpere ? 2 : 1;
 
     return (
         <div className="space-y-4">
@@ -65,61 +80,64 @@ export default function AcRecapTable({ rows, title, clientName }: AcRecapTablePr
                     <TableHeader>
                         {/* First header row: grouped columns */}
                         <TableRow>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", stickyColumnClass, mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", stickyColumnClass, mobileClass)}>
                                 NO
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TANGGAL
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 LOKASI
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TYPE AC
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 MEREK
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 KAPASITAS
                             </TableHead>
-                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 SUHU BEFORE
                             </TableHead>
-                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 SUHU AFTER
                             </TableHead>
-                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
-                                AMPERE BEFORE
-                            </TableHead>
-                            <TableHead colSpan={3} className={cn("text-center border-r", mobileClass)}>
-                                AMPERE AFTER
-                            </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            {beforePhases.length > 0 && (
+                                <TableHead colSpan={beforePhases.length} className={cn("text-center border-r", mobileClass)}>
+                                    AMPERE BEFORE
+                                </TableHead>
+                            )}
+                            {afterPhases.length > 0 && (
+                                <TableHead colSpan={afterPhases.length} className={cn("text-center border-r", mobileClass)}>
+                                    AMPERE AFTER
+                                </TableHead>
+                            )}
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TEKANAN FREON BEFORE
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center border-r align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center border-r align-middle", mobileClass)}>
                                 TEKANAN FREON AFTER
                             </TableHead>
-                            <TableHead rowSpan={2} className={cn("text-center align-middle", mobileClass)}>
+                            <TableHead rowSpan={headerRowSpan} className={cn("text-center align-middle", mobileClass)}>
                                 KETERANGAN
                             </TableHead>
                         </TableRow>
-                        {/* Second header row: R/S/T sub-columns */}
-                        <TableRow>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>R</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>S</TableHead>
-                            <TableHead className={cn("text-center border-r", mobileClass)}>T</TableHead>
-                        </TableRow>
+                        {hasAmpere && (
+                            <TableRow>
+                                {beforePhases.map((phase) => (
+                                    <TableHead key={`before-${phase}`} className={cn("text-center border-r", mobileClass)}>
+                                        {phase.toUpperCase()}
+                                    </TableHead>
+                                ))}
+                                {afterPhases.map((phase) => (
+                                    <TableHead key={`after-${phase}`} className={cn("text-center border-r", mobileClass)}>
+                                        {phase.toUpperCase()}
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        )}
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => (
@@ -130,20 +148,20 @@ export default function AcRecapTable({ rows, title, clientName }: AcRecapTablePr
                                 <TableCell className={cn("text-center border-r", mobileClass)}>{row.tipe_ac}</TableCell>
                                 <TableCell className={cn("text-center border-r", mobileClass)}>{row.merek}</TableCell>
                                 <TableCell className={cn("text-center border-r", mobileClass)}>{row.kapasitas}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_r}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_s}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_before_t}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_r}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_s}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.suhu_after_t}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_r}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_s}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_before_t}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_r}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_s}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.ampere_after_t}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.freon_before}</TableCell>
-                                <TableCell className={cn("text-center border-r", mobileClass)}>{row.freon_after}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{displayMeasurement(row.suhu_before)}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{displayMeasurement(row.suhu_after)}</TableCell>
+                                {beforePhases.map((phase) => (
+                                    <TableCell key={`before-${phase}`} className={cn("text-center border-r", mobileClass)}>
+                                        {displayMeasurement(getAmpere(row, 'before', phase))}
+                                    </TableCell>
+                                ))}
+                                {afterPhases.map((phase) => (
+                                    <TableCell key={`after-${phase}`} className={cn("text-center border-r", mobileClass)}>
+                                        {displayMeasurement(getAmpere(row, 'after', phase))}
+                                    </TableCell>
+                                ))}
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{displayMeasurement(row.freon_before)}</TableCell>
+                                <TableCell className={cn("text-center border-r", mobileClass)}>{displayMeasurement(row.freon_after)}</TableCell>
                                 <TableCell className={cn(mobileClass)}>{row.keterangan ?? '-'}</TableCell>
                             </TableRow>
                         ))}

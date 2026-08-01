@@ -27,6 +27,8 @@ class Invoice extends Model
         'shipping_cost',
         'grand_total',
         'due_date',
+        'work_start_date',
+        'work_end_date',
         'status',
         'paid_at',
         'notes',
@@ -43,6 +45,8 @@ class Invoice extends Model
             'shipping_cost' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'due_date' => 'date',
+            'work_start_date' => 'date',
+            'work_end_date' => 'date',
             'paid_at' => 'datetime',
         ];
     }

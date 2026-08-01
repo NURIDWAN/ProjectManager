@@ -428,6 +428,48 @@ class BapControllerTest extends TestCase
         $this->assertDatabaseMissing('baps', ['id' => $bap->id]);
     }
 
+    public function test_show_includes_current_ac_recap_shape(): void
+    {
+        $acCategory = JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+        $report = WorkReport::factory()->submitted()->create([
+            'client_id' => $this->client->id,
+            'category_id' => $acCategory->id,
+            'technician_id' => $this->technician->id,
+            'preset_data' => [[
+                'lokasi' => 'Lobby',
+                'tipe_ac' => 'Splitwall',
+                'merek' => 'Gree',
+                'kapasitas' => 1,
+                'suhu_before' => 26,
+                'suhu_after' => 19,
+                'ampere_input_count' => 1,
+                'ampere_before_r' => 2.2,
+                'ampere_after_r' => 1.9,
+                'freon_before' => null,
+                'freon_after' => null,
+            ]],
+        ]);
+        $bap = Bap::factory()->create([
+            'client_id' => $this->client->id,
+            'work_report_ids' => [$report->id],
+        ]);
+
+        $response = $this->actingAs($this->admin)->get("/baps/{$bap->id}");
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Baps/Show')
+            ->has('acRecapRows', 1)
+            ->where('acRecapRows.0.suhu_before', 26)
+            ->where('acRecapRows.0.suhu_after', 19)
+            ->where('acRecapRows.0.ampere_input_count', 1)
+            ->where('acRecapRows.0.ampere_before_s', null)
+            ->where('acRecapRows.0.freon_before', null)
+        );
+    }
+
     // === EXPORT PDF ===
 
     public function test_admin_can_export_bap_as_pdf(): void

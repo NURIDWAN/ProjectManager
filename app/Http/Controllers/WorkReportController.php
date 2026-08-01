@@ -11,6 +11,7 @@ use App\Models\WorkReportPhoto;
 use App\Services\AcMeasurementValidatorInterface;
 use App\Services\PdfImageOptimizerInterface;
 use App\Services\PresetRegistryInterface;
+use App\Services\WorkReportImageStorageInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,7 @@ class WorkReportController extends Controller
         protected PresetRegistryInterface $presetRegistry,
         protected AcMeasurementValidatorInterface $acMeasurementValidator,
         protected PdfImageOptimizerInterface $pdfImageOptimizer,
+        protected WorkReportImageStorageInterface $workReportImageStorage,
     ) {}
 
     /**
@@ -482,8 +484,7 @@ class WorkReportController extends Controller
 
         if ($request->hasFile($field)) {
             foreach ($request->file($field) as $photo) {
-                $path = $photo->store('work-reports', 'public');
-                $this->pdfImageOptimizer->optimize($path);
+                $path = $this->workReportImageStorage->storeCompressed($photo, 'work-reports');
                 $paths[] = $path;
             }
         }
@@ -655,8 +656,7 @@ class WorkReportController extends Controller
             if ($request->hasFile("ac_photos_before_{$i}")) {
                 $beforeCaptions = $request->input("ac_captions_before_{$i}", []);
                 foreach ($request->file("ac_photos_before_{$i}") as $sortOrder => $photo) {
-                    $path = $photo->store('work-reports/ac-units', 'public');
-                    $this->pdfImageOptimizer->optimize($path);
+                    $path = $this->workReportImageStorage->storeCompressed($photo, 'work-reports/ac-units');
                     $newPhotoRows[] = $this->buildAcPhotoRow(
                         $workReport,
                         WorkReportPhoto::TYPE_BEFORE,
@@ -672,8 +672,7 @@ class WorkReportController extends Controller
             if ($request->hasFile("ac_photos_after_{$i}")) {
                 $afterCaptions = $request->input("ac_captions_after_{$i}", []);
                 foreach ($request->file("ac_photos_after_{$i}") as $sortOrder => $photo) {
-                    $path = $photo->store('work-reports/ac-units', 'public');
-                    $this->pdfImageOptimizer->optimize($path);
+                    $path = $this->workReportImageStorage->storeCompressed($photo, 'work-reports/ac-units');
                     $newPhotoRows[] = $this->buildAcPhotoRow(
                         $workReport,
                         WorkReportPhoto::TYPE_AFTER,

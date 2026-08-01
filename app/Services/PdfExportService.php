@@ -54,6 +54,7 @@ class PdfExportService implements PdfExportServiceInterface
                 'settings' => $settings,
                 'pdfPhotoPaths' => $pdfPhotoPaths,
             ]);
+            $pdf->setOption('enable_font_subsetting', true);
             $pdf->setPaper('A4', 'landscape');
             $content = $pdf->output();
 
@@ -140,6 +141,7 @@ class PdfExportService implements PdfExportServiceInterface
                 'suratHtml' => $suratHtml,
             ])->render();
             $portraitPdf = Pdf::loadHTML($portraitHtml);
+            $portraitPdf->setOption('enable_font_subsetting', true);
             $portraitPdf->setPaper('A4', 'portrait');
 
             $landscapeHtml = view('pdf.bast.layout-landscape', [
@@ -147,6 +149,7 @@ class PdfExportService implements PdfExportServiceInterface
                 'laporanHtml' => $laporanHtml,
             ])->render();
             $landscapePdf = Pdf::loadHTML($landscapeHtml);
+            $landscapePdf->setOption('enable_font_subsetting', true);
             $landscapePdf->setPaper('A4', 'landscape');
 
             $tempPortrait = tempnam(sys_get_temp_dir(), 'bast_portrait_');
@@ -269,6 +272,12 @@ class PdfExportService implements PdfExportServiceInterface
 
         return hash('sha256', serialize([
             'version' => (string) config('pdf.cache_version', '1'),
+            'template_version' => 'work-report-ac-v4',
+            'image_profile' => [
+                'enabled' => config('pdf.images.enabled', true),
+                'max_dimension' => config('pdf.images.max_dimension', 1024),
+                'jpeg_quality' => config('pdf.images.jpeg_quality', 55),
+            ],
             'type' => $type,
             'document' => $document->getAttributes(),
             'client' => $document->client?->getAttributes(),

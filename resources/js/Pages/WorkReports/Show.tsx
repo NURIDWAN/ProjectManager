@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { StatusBadge } from '@/Components/StatusBadge';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import AcRecapTable, { AcRecapRow } from '@/Components/AcRecapTable';
+import { normalizeAcMeasurementEntry } from '@/Components/AcMeasurementForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -58,29 +59,31 @@ export default function Show({ workReport }: Props) {
         const reportDate = new Date(workReport.created_at);
         const tanggal = `${String(reportDate.getDate()).padStart(2, '0')}/${String(reportDate.getMonth() + 1).padStart(2, '0')}/${reportDate.getFullYear()}`;
 
-        return workReport.preset_data.map((entry, index) => ({
-            no: index + 1,
-            tanggal,
-            lokasi: entry.lokasi ?? '',
-            tipe_ac: entry.tipe_ac ?? '',
-            merek: entry.merek ?? '',
-            kapasitas: entry.kapasitas ?? 0,
-            suhu_before_r: entry.suhu_before_r ?? 0,
-            suhu_before_s: entry.suhu_before_s ?? 0,
-            suhu_before_t: entry.suhu_before_t ?? 0,
-            suhu_after_r: entry.suhu_after_r ?? 0,
-            suhu_after_s: entry.suhu_after_s ?? 0,
-            suhu_after_t: entry.suhu_after_t ?? 0,
-            ampere_before_r: entry.ampere_before_r ?? 0,
-            ampere_before_s: entry.ampere_before_s ?? 0,
-            ampere_before_t: entry.ampere_before_t ?? 0,
-            ampere_after_r: entry.ampere_after_r ?? 0,
-            ampere_after_s: entry.ampere_after_s ?? 0,
-            ampere_after_t: entry.ampere_after_t ?? 0,
-            freon_before: entry.freon_before ?? 0,
-            freon_after: entry.freon_after ?? 0,
-            keterangan: entry.keterangan ?? null,
-        }));
+        return workReport.preset_data.map((rawEntry, index) => {
+            const entry = normalizeAcMeasurementEntry(rawEntry);
+            const count = entry.ampere_input_count;
+
+            return {
+                no: index + 1,
+                tanggal,
+                lokasi: entry.lokasi,
+                tipe_ac: entry.tipe_ac,
+                merek: entry.merek,
+                kapasitas: Number(entry.kapasitas) || 0,
+                suhu_before: entry.suhu_before === '' ? null : entry.suhu_before,
+                suhu_after: entry.suhu_after === '' ? null : entry.suhu_after,
+                ampere_input_count: count,
+                ampere_before_r: entry.ampere_before_r === '' ? null : entry.ampere_before_r,
+                ampere_before_s: count >= 2 && entry.ampere_before_s !== '' ? entry.ampere_before_s : null,
+                ampere_before_t: count >= 3 && entry.ampere_before_t !== '' ? entry.ampere_before_t : null,
+                ampere_after_r: entry.ampere_after_r === '' ? null : entry.ampere_after_r,
+                ampere_after_s: count >= 2 && entry.ampere_after_s !== '' ? entry.ampere_after_s : null,
+                ampere_after_t: count >= 3 && entry.ampere_after_t !== '' ? entry.ampere_after_t : null,
+                freon_before: entry.freon_before === '' ? null : entry.freon_before,
+                freon_after: entry.freon_after === '' ? null : entry.freon_after,
+                keterangan: entry.keterangan || null,
+            };
+        });
     })();
 
     const handleSubmit = () => {

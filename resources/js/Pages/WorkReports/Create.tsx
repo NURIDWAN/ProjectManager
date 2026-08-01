@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { FileUpload, PhotoWithCaption } from '@/Components/FileUpload';
-import AcMeasurementForm, { AcMeasurementEntry, AcEntryPhotos, EMPTY_PHOTOS } from '@/Components/AcMeasurementForm';
+import AcMeasurementForm, {
+    AcMeasurementEntry,
+    AcEntryPhotos,
+    EMPTY_ENTRY,
+    EMPTY_PHOTOS,
+} from '@/Components/AcMeasurementForm';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -66,6 +71,10 @@ export default function Create({ clients, categories }: Props) {
         }
 
         setCategoryId(newValue ?? '');
+        if (willBeAcCategory && !wasAcCategory && presetData.length === 0) {
+            setPresetData([{ ...EMPTY_ENTRY }]);
+            setAcPhotos([{ ...EMPTY_PHOTOS }]);
+        }
     };
 
     const buildFormData = () => {

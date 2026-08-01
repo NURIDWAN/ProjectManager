@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { StatusBadge } from '@/Components/StatusBadge';
 import AcRecapTable, { AcRecapRow } from '@/Components/AcRecapTable';
 import { PdfPreviewModal } from '@/Components/PdfPreviewModal';
+import WorkReportDocumentation from '@/Components/WorkReportDocumentation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,8 +45,9 @@ interface WorkReport {
     status: 'draft' | 'submitted';
     submitted_at: string | null;
     created_at: string;
-    category?: { id: number; name: string } | null;
+    category?: { id: number; name: string; preset_identifier?: string | null } | null;
     technician?: { id: number; name: string } | null;
+    preset_data?: Record<string, unknown>[] | null;
     before_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
     after_photo_items?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
 }
@@ -296,6 +298,13 @@ export default function Show({ bap, workReports, acRecapRows }: Props) {
                             </Card>
                         )}
 
+                        <WorkReportDocumentation
+                            reports={workReports}
+                            clientName={bap.client?.name}
+                            clientAddress={bap.client?.address}
+                            onlyAc
+                        />
+
                         {workReports.length === 0 ? (
                             <Card>
                                 <CardHeader className="pb-4">
@@ -315,7 +324,9 @@ export default function Show({ bap, workReports, acRecapRows }: Props) {
                             </Card>
                         ) : (
                             <div className="space-y-6">
-                                {workReports.map((report, index) => (
+                                {workReports
+                                    .filter((report) => report.category?.preset_identifier !== 'ac_maintenance')
+                                    .map((report, index) => (
                                     <Card key={report.id} className="overflow-hidden">
                                         {/* Header Info Table - like the image */}
                                         <div className="border-b">

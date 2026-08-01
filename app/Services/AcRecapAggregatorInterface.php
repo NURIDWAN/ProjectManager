@@ -13,7 +13,8 @@ interface AcRecapAggregatorInterface
      * Returns a flat array of rows with sequential numbering.
      *
      * @param Collection $workReports Collection of WorkReport models (with category loaded)
-     * @return array Array of aggregated row data with keys: no, tanggal, lokasi, tipe_ac, merek, kapasitas, suhu_before_r/s/t, suhu_after_r/s/t, ampere_before_r/s/t, ampere_after_r/s/t, freon_before, freon_after, keterangan
+     * @return array Array of aggregated rows using one before/after temperature,
+     *               a 1-3 Ampere input count, optional R/S/T values, and optional Freon values.
      */
     public function aggregate(Collection $workReports): array;
 }

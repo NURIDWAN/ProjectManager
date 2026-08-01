@@ -24,6 +24,8 @@ use App\Services\PdfImageOptimizer;
 use App\Services\PdfImageOptimizerInterface;
 use App\Services\PresetRegistry;
 use App\Services\PresetRegistryInterface;
+use App\Services\WorkReportImageStorage;
+use App\Services\WorkReportImageStorageInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PdfExportServiceInterface::class, PdfExportService::class);
         $this->app->bind(PdfImageOptimizerInterface::class, PdfImageOptimizer::class);
         $this->app->bind(PresetRegistryInterface::class, PresetRegistry::class);
+        $this->app->bind(WorkReportImageStorageInterface::class, WorkReportImageStorage::class);
     }
 
     /**

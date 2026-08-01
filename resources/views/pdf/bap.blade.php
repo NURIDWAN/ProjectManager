@@ -471,6 +471,8 @@
             $unitBeforePhotos = $allBeforePhotos->filter(fn($p) => str_starts_with($p->caption ?? '', $prefix));
             $unitAfterPhotos = $allAfterPhotos->filter(fn($p) => str_starts_with($p->caption ?? '', $prefix));
             $tipeAc = strtoupper($unitEntry['tipe_ac'] ?? 'AC');
+            $unitLocation = $unitEntry['lokasi'] ?? $report->area ?? '-';
+            $unitIdentity = trim(($unitEntry['merek'] ?? '').' '.(isset($unitEntry['kapasitas']) ? $unitEntry['kapasitas'].' PK' : ''));
         @endphp
         @if($unitBeforePhotos->count() > 0 || $unitAfterPhotos->count() > 0)
         <div style="page-break-before: always;">
@@ -489,7 +491,7 @@
                 <tr>
                     <td class="label-col">Area</td>
                     <td class="sep-col">:</td>
-                    <td class="value-col">{{ $report->area ?? '-' }} ({{ $unitEntry['merk_ac'] ?? '' }} {{ $unitEntry['kapasitas_pk'] ?? '' }} PK)</td>
+                    <td class="value-col">{{ $unitLocation }}{{ $unitIdentity !== '' ? ' ('.$unitIdentity.')' : '' }}</td>
                 </tr>
                 <tr>
                     <td class="label-col">Konsumen</td>

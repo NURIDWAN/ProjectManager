@@ -28,6 +28,8 @@ class InvoiceFactory extends Factory
             'ppn' => 110000,
             'grand_total' => 1110000,
             'due_date' => null,
+            'work_start_date' => null,
+            'work_end_date' => null,
             'status' => Invoice::STATUS_DRAFT,
             'paid_at' => null,
         ];

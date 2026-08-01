@@ -2,7 +2,13 @@ import { useState, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { FileUpload, PhotoWithCaption, ExistingPhoto } from '@/Components/FileUpload';
-import AcMeasurementForm, { AcMeasurementEntry, AcEntryPhotos, EMPTY_PHOTOS } from '@/Components/AcMeasurementForm';
+import AcMeasurementForm, {
+    AcMeasurementEntry,
+    AcEntryPhotos,
+    EMPTY_ENTRY,
+    EMPTY_PHOTOS,
+    normalizeAcMeasurementEntry,
+} from '@/Components/AcMeasurementForm';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -61,28 +67,6 @@ interface Props {
     categories: Category[];
 }
 
-const EMPTY_ENTRY: AcMeasurementEntry = {
-    lokasi: '',
-    tipe_ac: '',
-    merek: '',
-    kapasitas: '',
-    suhu_before_r: '',
-    suhu_before_s: '',
-    suhu_before_t: '',
-    suhu_after_r: '',
-    suhu_after_s: '',
-    suhu_after_t: '',
-    ampere_before_r: '',
-    ampere_before_s: '',
-    ampere_before_t: '',
-    ampere_after_r: '',
-    ampere_after_s: '',
-    ampere_after_t: '',
-    freon_before: '',
-    freon_after: '',
-    keterangan: '',
-};
-
 export default function Edit({ workReport, clients, categories }: Props) {
     const [clientId, setClientId] = useState(
         workReport.client_id ? String(workReport.client_id) : ''
@@ -106,7 +90,9 @@ export default function Edit({ workReport, clients, categories }: Props) {
     // AC Measurement preset state
     const [presetData, setPresetData] = useState<AcMeasurementEntry[]>(() => {
         if (workReport.preset_data && Array.isArray(workReport.preset_data) && workReport.preset_data.length > 0) {
-            return workReport.preset_data;
+            return workReport.preset_data.map((entry) =>
+                normalizeAcMeasurementEntry(entry as unknown as Record<string, unknown>)
+            );
         }
         return [{ ...EMPTY_ENTRY }];
     });

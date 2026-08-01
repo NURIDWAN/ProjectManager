@@ -24,7 +24,11 @@ return [
     'images' => [
         'enabled' => env('PDF_IMAGE_OPTIMIZATION_ENABLED', true),
         'directory' => 'work-reports/pdf',
-        'max_dimension' => 1600,
-        'jpeg_quality' => 80,
+        'max_dimension' => env('PDF_IMAGE_MAX_DIMENSION', 1024),
+        'jpeg_quality' => env('PDF_IMAGE_JPEG_QUALITY', 55),
+    ],
+    'upload_images' => [
+        'max_dimension' => env('WORK_REPORT_IMAGE_MAX_DIMENSION', 1024),
+        'jpeg_quality' => env('WORK_REPORT_IMAGE_JPEG_QUALITY', 55),
     ],
 ];

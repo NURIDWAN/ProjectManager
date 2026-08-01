@@ -33,9 +33,12 @@ interface ServiceOption {
 }
 
 interface InvoiceItem {
-    service_id: number;
+    source: 'master' | 'manual';
+    service_id: number | null;
     service_name: string;
     unit: string;
+    save_to_master: boolean;
+    manual_type: 'product' | 'service';
     quantity: number;
     unit_price: number;
     discount_percent: number;
@@ -43,12 +46,14 @@ interface InvoiceItem {
 
 interface InvoiceItemFromServer {
     id: number;
-    service_id: number;
+    service_id: number | null;
+    description: string | null;
+    unit: string | null;
     quantity: number;
     unit_price: number;
     discount_percent: number;
     line_total: number;
-    service: { id: number; name: string; unit: string };
+    service: { id: number; name: string; unit: string } | null;
 }
 
 interface InvoiceData {
@@ -62,6 +67,8 @@ interface InvoiceData {
     shipping_cost: number;
     grand_total: number;
     due_date: string | null;
+    work_start_date: string | null;
+    work_end_date: string | null;
     status: string;
     notes: string | null;
     terms: string | null;
@@ -100,15 +107,20 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
     const [selectedClientId, setSelectedClientId] = useState(String(invoice.client_id));
     const [items, setItems] = useState<InvoiceItem[]>(
         invoice.items.map((item) => ({
+            source: item.service_id ? 'master' : 'manual',
             service_id: item.service_id,
-            service_name: item.service?.name ?? '',
-            unit: item.service?.unit ?? '',
+            service_name: item.description || item.service?.name || '',
+            unit: item.unit || item.service?.unit || '',
+            save_to_master: false,
+            manual_type: 'product',
             quantity: item.quantity,
             unit_price: item.unit_price,
             discount_percent: item.discount_percent,
         }))
     );
     const [dueDate, setDueDate] = useState(invoice.due_date ?? '');
+    const [workStartDate, setWorkStartDate] = useState(invoice.work_start_date ?? '');
+    const [workEndDate, setWorkEndDate] = useState(invoice.work_end_date ?? '');
     const [notes, setNotes] = useState(invoice.notes ?? '');
     const [terms, setTerms] = useState(invoice.terms ?? '');
     const [processing, setProcessing] = useState(false);
@@ -139,28 +151,34 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
     const selectedClient = clients.find((c) => String(c.id) === selectedClientId);
 
     const handleAddItem = () => {
-        if (services.length === 0) return;
-        const svc = services[0];
         setItems((prev) => [...prev, {
-            service_id: svc.id, service_name: svc.name, unit: svc.unit,
-            quantity: 1, unit_price: parseFloat(String(svc.price)), discount_percent: 0,
+            source: 'master', service_id: null, service_name: '', unit: '', save_to_master: false,
+            manual_type: 'product', quantity: 1, unit_price: 0, discount_percent: 0,
         }]);
     };
 
     const handleServiceChange = (index: number, serviceId: string) => {
+        if (serviceId === 'manual') {
+            setItems((prev) => prev.map((item, i) => i === index ? {
+                ...item, source: 'manual', service_id: null, service_name: '', unit: '',
+                unit_price: 0, save_to_master: false, manual_type: 'product',
+            } : item));
+            return;
+        }
         const svc = services.find((s) => s.id === parseInt(serviceId));
         if (!svc) return;
         setItems((prev) => {
             const u = [...prev];
-            u[index] = { ...u[index], service_id: svc.id, service_name: svc.name, unit: svc.unit, unit_price: parseFloat(String(svc.price)) };
+            u[index] = { ...u[index], source: 'master', service_id: svc.id, service_name: svc.name, unit: svc.unit, unit_price: parseFloat(String(svc.price)), save_to_master: false };
             return u;
         });
     };
 
-    const handleItemChange = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    const handleItemChange = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
         setItems((prev) => {
             const u = [...prev];
-            u[index] = { ...u[index], [field]: typeof value === 'string' ? parseFloat(value) || 0 : value };
+            const numericFields: (keyof InvoiceItem)[] = ['quantity', 'unit_price', 'discount_percent'];
+            u[index] = { ...u[index], [field]: numericFields.includes(field) && typeof value === 'string' ? parseFloat(value) || 0 : value };
             return u;
         });
     };
@@ -175,13 +193,18 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
         router.put(`/invoices/${invoice.id}`, {
             client_id: parseInt(selectedClientId),
             due_date: dueDate || null,
+            work_start_date: workStartDate || null,
+            work_end_date: workEndDate || null,
             notes: notes || null,
             terms: terms || null,
             tax_percent: showTax ? taxPercent : 0,
             discount_total: showDiscount ? discountTotal : 0,
             shipping_cost: showShipping ? shippingCost : 0,
             items: items.map((item) => ({
-                service_id: item.service_id, quantity: item.quantity,
+                source: item.source, service_id: item.service_id,
+                description: item.service_name, unit: item.unit,
+                save_to_master: item.save_to_master, manual_type: item.manual_type,
+                quantity: item.quantity,
                 unit_price: item.unit_price, discount_percent: item.discount_percent,
             })),
         }, {
@@ -285,12 +308,48 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                             </div>
                         </div>
 
+                        {/* Work Period */}
+                        <div className="grid grid-cols-1 gap-4 border-b p-6 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <label htmlFor="work_start_date" className="text-sm font-medium text-gray-600">
+                                    Tanggal Mulai Pekerjaan
+                                </label>
+                                <Input
+                                    id="work_start_date"
+                                    type="date"
+                                    value={workStartDate}
+                                    onChange={(e) => setWorkStartDate(e.target.value)}
+                                    className="border-dashed"
+                                />
+                                {(errors as any).work_start_date && (
+                                    <p className="text-xs text-destructive">{(errors as any).work_start_date}</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <label htmlFor="work_end_date" className="text-sm font-medium text-gray-600">
+                                    Tanggal Selesai Pekerjaan
+                                </label>
+                                <Input
+                                    id="work_end_date"
+                                    type="date"
+                                    value={workEndDate}
+                                    min={workStartDate || undefined}
+                                    onChange={(e) => setWorkEndDate(e.target.value)}
+                                    className="border-dashed"
+                                />
+                                {(errors as any).work_end_date && (
+                                    <p className="text-xs text-destructive">{(errors as any).work_end_date}</p>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Items Table */}
                         <div className="p-6 border-b">
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-emerald-600 text-white text-xs">
-                                        <th className="px-3 py-2 text-left font-semibold rounded-tl">Barang</th>
+                                        <th className="px-3 py-2 text-center font-semibold w-[48px] rounded-tl">No</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Barang</th>
                                         <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
                                         <th className="px-3 py-2 text-right font-semibold w-[120px]">Kecepatan</th>
                                         <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
@@ -300,8 +359,11 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                 <tbody>
                                     {items.map((item, index) => (
                                         <tr key={index} className="border-b border-gray-100 group">
+                                            <td className="py-2 px-2 text-center text-sm text-gray-500">
+                                                {index + 1}
+                                            </td>
                                             <td className="py-2 pr-2">
-                                                <Select value={item.service_id ? String(item.service_id) : undefined} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries(services.map(s => [String(s.id), s.name]))}>
+                                                <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input barang manual']])}>
                                                     <SelectTrigger className="w-full border-0 shadow-none h-8 text-sm bg-transparent hover:bg-gray-50">
                                                         <SelectValue placeholder="Pilih barang" />
                                                     </SelectTrigger>
@@ -309,8 +371,32 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                                         {services.map((svc) => (
                                                             <SelectItem key={svc.id} value={String(svc.id)} label={svc.name}>{svc.name}</SelectItem>
                                                         ))}
+                                                        <SelectItem value="manual" label="+ Input barang manual">+ Input barang manual</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                                {item.source === 'manual' && (
+                                                    <div className="mt-2 space-y-2 rounded-md border border-dashed bg-gray-50 p-2">
+                                                        <Input value={item.service_name} onChange={(e) => handleItemChange(index, 'service_name', e.target.value)} placeholder="Nama barang/jasa" className="h-8 bg-white text-sm" />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <Input value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} placeholder="Satuan (unit, paket...)" className="h-8 bg-white text-sm" />
+                                                            <select value={item.manual_type} onChange={(e) => handleItemChange(index, 'manual_type', e.target.value)} className="h-8 rounded-md border border-input bg-white px-2 text-sm">
+                                                                <option value="product">Barang</option>
+                                                                <option value="service">Jasa</option>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <p className="mb-1 text-xs font-medium text-gray-600">Simpan ke Master Data?</p>
+                                                            <div className="grid grid-cols-2 gap-1">
+                                                                <button type="button" onClick={() => handleItemChange(index, 'save_to_master', false)} className={`rounded border px-2 py-1.5 text-xs font-medium ${!item.save_to_master ? 'border-gray-500 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-500'}`}>
+                                                                    Tidak disimpan
+                                                                </button>
+                                                                <button type="button" onClick={() => handleItemChange(index, 'save_to_master', true)} className={`rounded border px-2 py-1.5 text-xs font-medium ${item.save_to_master ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 bg-white text-emerald-700'}`}>
+                                                                    Simpan ke Master
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-2 px-1">
                                                 <Input type="number" min="0.01" step="1" value={item.quantity}
