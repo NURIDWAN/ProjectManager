@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CompanySetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -33,6 +34,12 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user() ? $request->user()->loadMissing('roles') : null,
+            ],
+            'company' => fn () => [
+                'name' => CompanySetting::get('company_name', 'ManPro') ?: 'ManPro',
+                'logoUrl' => ($logo = CompanySetting::get('company_logo'))
+                    ? "/storage/{$logo}"
+                    : null,
             ],
         ];
     }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { StatusBadge } from '@/Components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -182,17 +183,14 @@ export default function Index({ baps, clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Berita Acara Pekerjaan (BAP)
-                    </h2>
+                <PageHeader title="Berita Acara Pekerjaan" description="Buat, tinjau, dan setujui dokumen BAP dari laporan kerja." actions={
                     <Link href="/baps/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Buat BAP
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="BAP" />
@@ -248,7 +246,7 @@ export default function Index({ baps, clients, filters }: Props) {
                     {baps.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {baps.from}–{baps.to} dari{' '}
+                                Menampilkan {baps.from}-{baps.to} dari{' '}
                                 {baps.total} data
                             </p>
 

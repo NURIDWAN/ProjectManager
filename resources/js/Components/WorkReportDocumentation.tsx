@@ -156,7 +156,7 @@ export default function WorkReportDocumentation({
                                 <CardHeader className="border-b py-3">
                                     <CardTitle className="text-base">
                                         Dokumentasi Unit AC #{unitIndex + 1}
-                                        {identity ? ` — ${identity}` : ''}
+                                        {identity ? ` - ${identity}` : ''}
                                     </CardTitle>
                                 </CardHeader>
                                 <ReportInformation

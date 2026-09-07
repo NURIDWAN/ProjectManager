@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,15 +30,12 @@ export default function RolesIndex({ roles }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Role & Perizinan
-                    </h2>
+                <PageHeader title="Role & Perizinan" description="Atur hak akses pengguna berdasarkan tanggung jawabnya." actions={
                     <Button onClick={() => setCreateDialogOpen(true)}>
-                        <Plus className="mr-1 size-4" />
-                        Create Role
+                        <Plus className="size-4" />
+                        Tambah Role
                     </Button>
-                </div>
+                } />
             }
         >
             <Head title="Role & Perizinan" />

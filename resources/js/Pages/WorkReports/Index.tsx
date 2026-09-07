@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { StatusBadge } from '@/Components/StatusBadge';
 import { ConfirmModal } from '@/Components/ConfirmModal';
@@ -64,7 +65,7 @@ export default function Index({ workReports, clients, filters }: Props) {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [reportToDelete, setReportToDelete] = useState<WorkReport | null>(null);
 
-    const { flash } = usePage().props as any;
+    const { flash, auth } = usePage().props as any;
 
     if (flash?.success) {
         toast.success(flash.success);
@@ -179,6 +180,7 @@ export default function Index({ workReports, clients, filters }: Props) {
             id: 'technician_name',
             header: 'Teknisi',
             accessorFn: (row) => row.technician?.name ?? '-',
+            cell: ({ row }) => row.original.technician?.name ?? "-",
             meta: { responsiveHidden: 'tablet' },
         },
         {
@@ -203,6 +205,9 @@ export default function Index({ workReports, clients, filters }: Props) {
             header: 'Aksi',
             cell: ({ row }) => {
                 const report = row.original;
+                const isAdmin = auth.user.role === 'admin' || auth.user.roles?.some((r: any) => r.name === 'admin');
+                const canEdit = report.status === 'draft';
+
                 return (
                     <div className="flex items-center gap-1">
                         <Link href={`/work-reports/${report.id}`}>
@@ -210,7 +215,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                                 <Eye className="size-4" />
                             </Button>
                         </Link>
-                        {report.status === 'draft' && (
+                        {canEdit && (
                             <>
                                 <Link href={`/work-reports/${report.id}/edit`}>
                                     <Button variant="ghost" size="icon-sm" title="Edit">
@@ -244,17 +249,14 @@ export default function Index({ workReports, clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Laporan Kerja
-                    </h2>
+                <PageHeader title="Laporan Kerja" description="Catat, tinjau, dan submit aktivitas teknisi di lapangan." actions={
                     <Link href="/work-reports/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Buat Laporan
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Laporan Kerja" />
@@ -310,7 +312,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                                 className="w-[150px]"
                                 placeholder="Dari"
                             />
-                            <span className="text-sm text-muted-foreground">—</span>
+                            <span className="text-sm text-muted-foreground">-</span>
                             <Input
                                 type="date"
                                 value={dateTo}
@@ -328,7 +330,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                     {workReports.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {workReports.from}–{workReports.to} dari{' '}
+                                Menampilkan {workReports.from}-{workReports.to} dari{' '}
                                 {workReports.total} data
                             </p>
 

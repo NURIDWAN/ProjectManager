@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -51,6 +51,7 @@ import {
     SlidersHorizontal,
     Search,
     X,
+    Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -125,22 +126,21 @@ export function DataTable<TData, TValue>({
         },
     });
 
-    // Apply external filter if provided
-    if (searchKey && searchValue !== undefined) {
+    useEffect(() => {
+        if (!searchKey || searchValue === undefined) return;
         const column = table.getColumn(searchKey);
         if (column && column.getFilterValue() !== searchValue) {
             column.setFilterValue(searchValue);
         }
-    }
+    }, [searchKey, searchValue, table]);
 
-    // Notify parent of row selection changes
-    if (onRowSelectionChange) {
+    useEffect(() => {
+        if (!onRowSelectionChange) return;
         const selectedRows = table
             .getFilteredSelectedRowModel()
             .rows.map((row) => row.original);
-        // Only call if selection actually changed (use JSON comparison for simplicity)
-        // In production you'd use a ref-based approach
-    }
+        onRowSelectionChange(selectedRows);
+    }, [onRowSelectionChange, rowSelection, table]);
 
     const selectedCount = table.getFilteredSelectedRowModel().rows.length;
     const totalRows = table.getFilteredRowModel().rows.length;
@@ -148,22 +148,23 @@ export function DataTable<TData, TValue>({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-1 items-center gap-2">
                     {/* Global Search */}
                     {enableGlobalFilter && (
                         <div className="relative max-w-sm flex-1">
-                            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 placeholder={searchPlaceholder}
                                 value={globalFilter}
                                 onChange={(e) => setGlobalFilter(e.target.value)}
-                                className="pl-8"
+                                className="pl-9 pr-9"
                             />
                             {globalFilter && (
                                 <button
                                     onClick={() => setGlobalFilter('')}
-                                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label="Hapus pencarian"
                                 >
                                     <X className="size-4" />
                                 </button>
@@ -190,7 +191,7 @@ export function DataTable<TData, TValue>({
                                 Kolom
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Tampilkan Kolom</DropdownMenuLabel>
+                            <DropdownMenuLabel>Tampilkan kolom</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {table
                                 .getAllColumns()
@@ -214,7 +215,7 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border bg-card">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -238,9 +239,7 @@ export function DataTable<TData, TValue>({
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && 'selected'}
-                                    className={cn(
-                                        row.getIsSelected() && 'bg-muted/50'
-                                    )}
+                                    className={cn('hover:bg-muted/35', row.getIsSelected() && 'bg-primary/5')}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
@@ -256,9 +255,15 @@ export function DataTable<TData, TValue>({
                             <TableRow>
                                 <TableCell
                                     colSpan={columns.length}
-                                    className="h-24 text-center"
+                                    className="h-48 text-center"
                                 >
-                                    Tidak ada data.
+                                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                        <div className="flex size-10 items-center justify-center rounded-lg border bg-muted/35">
+                                            <Inbox className="size-5" />
+                                        </div>
+                                        <p className="text-sm font-medium text-foreground">Tidak ada data</p>
+                                        <p className="text-xs">Ubah filter atau tambahkan data baru.</p>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         )}
@@ -276,7 +281,7 @@ export function DataTable<TData, TValue>({
                                 {table.getState().pagination.pageIndex *
                                     table.getState().pagination.pageSize +
                                     1}
-                                –
+                                -
                                 {Math.min(
                                     (table.getState().pagination.pageIndex + 1) *
                                         table.getState().pagination.pageSize,
@@ -324,6 +329,7 @@ export function DataTable<TData, TValue>({
                         className="size-7 sm:size-8"
                         onClick={() => table.setPageIndex(0)}
                         disabled={!table.getCanPreviousPage()}
+                        aria-label="Halaman pertama"
                     >
                         <ChevronsLeft className="size-3.5 sm:size-4" />
                     </Button>
@@ -333,6 +339,7 @@ export function DataTable<TData, TValue>({
                         className="size-7 sm:size-8"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
+                        aria-label="Halaman sebelumnya"
                     >
                         <ChevronLeft className="size-3.5 sm:size-4" />
                     </Button>
@@ -342,6 +349,7 @@ export function DataTable<TData, TValue>({
                         className="size-7 sm:size-8"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
+                        aria-label="Halaman berikutnya"
                     >
                         <ChevronRight className="size-3.5 sm:size-4" />
                     </Button>
@@ -351,6 +359,7 @@ export function DataTable<TData, TValue>({
                         className="size-7 sm:size-8"
                         onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                         disabled={!table.getCanNextPage()}
+                        aria-label="Halaman terakhir"
                     >
                         <ChevronsRight className="size-3.5 sm:size-4" />
                     </Button>
@@ -415,7 +424,7 @@ export function getSelectionColumn<TData>(): ColumnDef<TData, unknown> {
                 onCheckedChange={(value) =>
                     table.toggleAllPageRowsSelected(!!value)
                 }
-                aria-label="Select all"
+                aria-label="Pilih semua baris"
                 className="translate-y-[2px]"
             />
         ),
@@ -423,7 +432,7 @@ export function getSelectionColumn<TData>(): ColumnDef<TData, unknown> {
             <Checkbox
                 checked={row.getIsSelected()}
                 onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
+                aria-label="Pilih baris"
                 className="translate-y-[2px]"
             />
         ),

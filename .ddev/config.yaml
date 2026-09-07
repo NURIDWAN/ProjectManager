@@ -290,4 +290,11 @@ corepack_enable: false
 # See https://docs.ddev.com/en/stable/users/extend/custom-commands/ for more
 # information on the commands that can be extended and the tasks you can define
 # for them. Example:
-#hooks:
+hooks:
+  post-start:
+    # Pastikan symlink public/storage selalu ada & relatif (valid di host maupun di dalam container)
+    - exec: |
+        if [ ! -e /var/www/html/public/storage ]; then
+          rm -f /var/www/html/public/storage
+          ln -s ../storage/app/public /var/www/html/public/storage
+        fi

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AutoSaveWorkReportRequest;
 use App\Http\Requests\StoreWorkReportRequest;
 use App\Models\Client;
 use App\Models\JobCategory;
@@ -12,6 +13,7 @@ use App\Services\AcMeasurementValidatorInterface;
 use App\Services\PdfImageOptimizerInterface;
 use App\Services\PresetRegistryInterface;
 use App\Services\WorkReportImageStorageInterface;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,8 +34,24 @@ class WorkReportController extends Controller
     ) {}
 
     /**
+     * Abort if an operator (technician/staff) tries to access a report.
+     * All operators can access all reports for collaboration via autosave.
+     * Admin always has access.
+     */
+    private function authorizeOperatorAccess(WorkReport $workReport): void
+    {
+        $user = Auth::user();
+
+        if (! $user->isWorkReportOperator()) {
+            return;
+        }
+
+        // All operators can access all reports
+    }
+
+    /**
      * Display a listing of work reports.
-     * Technicians only see their own reports. Admin sees all.
+     * All operators can see all reports for collaboration. Admin sees all.
      */
     public function index(Request $request): Response
     {
@@ -43,11 +61,6 @@ class WorkReportController extends Controller
             'category:id,name',
             'technician:id,name',
         ]);
-
-        // Operator data isolation: technician/staff only see own reports
-        if ($user->isWorkReportOperator()) {
-            $query->where('technician_id', $user->id);
-        }
 
         // Filter by status
         if ($status = $request->input('status')) {
@@ -86,6 +99,8 @@ class WorkReportController extends Controller
      */
     public function create(): Response
     {
+        $user = Auth::user();
+
         $clients = Client::active()->select('id', 'name')->orderBy('name')->get();
         $categories = JobCategory::select('id', 'name', 'preset_identifier')->orderBy('name')->get();
 
@@ -196,12 +211,7 @@ class WorkReportController extends Controller
      */
     public function show(WorkReport $work_report): Response|RedirectResponse
     {
-        $user = Auth::user();
-
-        // Operators can only view their own reports
-        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
-        }
+        $this->authorizeOperatorAccess($work_report);
 
         $work_report->load(['client', 'category', 'technician', 'beforePhotoItems', 'afterPhotoItems']);
 
@@ -228,10 +238,7 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Operators can only edit their own reports
-        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
-        }
+        $this->authorizeOperatorAccess($work_report);
 
         // Submitted reports cannot be edited by operators
         if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
@@ -277,10 +284,7 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Operators can only update their own reports
-        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
-        }
+        $this->authorizeOperatorAccess($work_report);
 
         // Submitted reports cannot be edited by operators
         if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
@@ -386,10 +390,7 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        // Operators can only delete their own reports
-        if ($user->isWorkReportOperator() && (int) $work_report->technician_id !== (int) $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
-        }
+        $this->authorizeOperatorAccess($work_report);
 
         // Submitted reports cannot be deleted by operators
         if ($user->isWorkReportOperator() && $work_report->status === WorkReport::STATUS_SUBMITTED) {
@@ -420,10 +421,7 @@ class WorkReportController extends Controller
         $workReport = WorkReport::findOrFail($id);
         $user = Auth::user();
 
-        // Operators can only submit their own reports
-        if ($user->isWorkReportOperator() && (int) $workReport->technician_id !== (int) $user->id) {
-            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
-        }
+        $this->authorizeOperatorAccess($workReport);
 
         // Already submitted
         if ($workReport->status === WorkReport::STATUS_SUBMITTED) {
@@ -433,13 +431,15 @@ class WorkReportController extends Controller
 
         // Validate required fields for submission
         $validator = Validator::make($workReport->toArray(), [
-            'client_id' => ['required'],
+            'client_id'   => ['required'],
             'category_id' => ['required'],
             'description' => ['required', 'string', 'min:1'],
+            'area'        => ['required', 'string', 'min:1'],
         ], [
-            'client_id.required' => 'Klien wajib dipilih sebelum submit.',
+            'client_id.required'   => 'Klien wajib dipilih sebelum submit.',
             'category_id.required' => 'Kategori pekerjaan wajib dipilih sebelum submit.',
             'description.required' => 'Deskripsi aktivitas wajib diisi sebelum submit.',
+            'area.required'        => 'Area wajib diisi sebelum submit.',
         ]);
 
         if ($validator->fails()) {
@@ -473,6 +473,245 @@ class WorkReportController extends Controller
 
         return Redirect::route('work-reports.index')
             ->with('success', 'Laporan kerja berhasil disubmit.');
+    }
+
+    /**
+     * Autosave a work report draft (upsert).
+     *
+      * Without `id`: creates a new draft owned by the authenticated user and
+      * returns its id so the frontend can keep updating it.
+      * With `id`: updates the existing draft if it is still a draft.
+      * All operators can collaborate on any draft via autosave.
+     *
+     * Returns JSON (not an Inertia redirect) because it is called by fetch/XHR.
+     */
+    public function autosave(AutoSaveWorkReportRequest $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        $workReport = null;
+
+        if ($request->filled('id')) {
+            $workReport = WorkReport::find($request->input('id'));
+
+            if ($workReport && $workReport->status !== WorkReport::STATUS_DRAFT) {
+                return response()->json([
+                    'message' => 'Draft tidak dapat disimpan.',
+                ], 403);
+            }
+        }
+
+        if (! $workReport) {
+            $workReport = new WorkReport([
+                'technician_id' => $user->id,
+                'status' => WorkReport::STATUS_DRAFT,
+            ]);
+            $workReport->save();
+        }
+
+        // Resolve preset_data based on category's preset_identifier
+        $presetData = $workReport->preset_data;
+        $categoryId = $request->input('category_id');
+        if ($categoryId) {
+            $category = JobCategory::find($categoryId);
+            if ($category && $category->preset_identifier && $this->presetRegistry->has($category->preset_identifier)) {
+                if ($category->preset_identifier === 'ac_maintenance') {
+                    $rawPresetData = $request->input('preset_data', []);
+                    // fetch sends JSON as an object, decode string payloads too
+                    $entries = is_string($rawPresetData) ? json_decode($rawPresetData, true) ?? [] : $rawPresetData;
+                    if (! empty($entries)) {
+                        // Throws ValidationException on failure
+                        $presetData = $this->acMeasurementValidator->validate($entries);
+                    }
+                }
+            }
+        }
+
+        $workReport->fill([
+            'client_id' => $request->input('client_id'),
+            'category_id' => $categoryId,
+            'description' => $request->input('description'),
+            'area' => $request->input('area'),
+        ]);
+
+        if ($categoryId) {
+            $workReport->preset_data = $presetData;
+        }
+
+        $workReport->save();
+
+        // Sync captions of uploaded draft photos (photo_id => caption)
+        if ($request->filled('photo_captions')) {
+            $captions = (array) $request->input('photo_captions');
+            $photoIds = array_keys($captions);
+            $photos = WorkReportPhoto::where('work_report_id', $workReport->id)
+                ->whereIn('id', $photoIds)
+                ->get();
+
+            foreach ($photos as $photo) {
+                $parsed = $this->parseAcPhotoCaption($photo->caption);
+                $newCaption = $captions[$photo->id] ?? null;
+                if ($parsed !== null) {
+                    // Preserve the ac_unit_{index} marker, update only the readable caption
+                    $unitIndex = $parsed['unit_index'];
+                    $photo->caption = 'ac_unit_'.$unitIndex.':'.($newCaption ?? '');
+                } else {
+                    $photo->caption = $newCaption;
+                }
+                $photo->save();
+            }
+        }
+
+        // Re-associate AC unit photos after entries are added/removed (photo_id => new unit index)
+        if ($request->filled('ac_photo_remap')) {
+            $remap = (array) $request->input('ac_photo_remap');
+            $photoIds = array_keys($remap);
+            $photos = WorkReportPhoto::where('work_report_id', $workReport->id)
+                ->whereIn('id', $photoIds)
+                ->where('caption', 'like', 'ac_unit_%')
+                ->get();
+
+            foreach ($photos as $photo) {
+                $parsed = $this->parseAcPhotoCaption($photo->caption);
+                if ($parsed === null) {
+                    continue;
+                }
+                $newUnitIndex = (int) $remap[$photo->id];
+                $photo->caption = 'ac_unit_'.$newUnitIndex.':'.$parsed['caption'];
+                $photo->save();
+            }
+        }
+
+        // Remove draft photos that the user deleted from the form
+        $existingBefore = $request->input('existing_before_photos');
+        $existingAfter = $request->input('existing_after_photos');
+        if (is_array($existingBefore) || is_array($existingAfter)) {
+            $keepBefore = is_array($existingBefore) ? array_map('intval', $existingBefore) : null;
+            $keepAfter = is_array($existingAfter) ? array_map('intval', $existingAfter) : null;
+
+            $photosToRemove = $workReport->photos()
+                ->where(function ($query) {
+                    $query->whereNull('caption')
+                        ->orWhere('caption', 'not like', 'ac_unit_%');
+                })
+                ->get()
+                ->filter(function (WorkReportPhoto $photo) use ($keepBefore, $keepAfter) {
+                    if ($photo->type === WorkReportPhoto::TYPE_BEFORE && $keepBefore !== null) {
+                        return ! in_array($photo->id, $keepBefore, true);
+                    }
+                    if ($photo->type === WorkReportPhoto::TYPE_AFTER && $keepAfter !== null) {
+                        return ! in_array($photo->id, $keepAfter, true);
+                    }
+
+                    return false;
+                });
+
+            foreach ($photosToRemove as $photo) {
+                $this->deleteStoredPhoto($photo->photo_path);
+                $photo->delete();
+            }
+        }
+
+        // Sync legacy JSON photo fields for backward compatibility
+        $this->syncLegacyPhotoFields($workReport);
+
+        return response()->json([
+            'id' => $workReport->id,
+            'status' => $workReport->status,
+            'saved_at' => $workReport->updated_at?->toISOString(),
+        ]);
+    }
+
+    /**
+     * Upload a single photo to a draft work report (called immediately when
+     * the user picks a file, so photos survive reloads and collaborations).
+     * For AC reports the photo is associated with a unit via `unit_index`,
+     * stored in the caption marker "ac_unit_{index}".
+     */
+    public function uploadPhoto(AutoSaveWorkReportRequest $request, WorkReport $work_report): JsonResponse
+    {
+        $user = Auth::user();
+
+        $this->authorizeOperatorAccess($work_report);
+
+        if ($work_report->status !== WorkReport::STATUS_DRAFT) {
+            return response()->json(['message' => 'Foto hanya dapat diunggah pada draft.'], 403);
+        }
+
+        $validated = $request->validate([
+            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'type' => ['required', 'in:before,after'],
+            'unit_index' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'caption' => ['nullable', 'string', 'max:255'],
+        ], [
+            'photo.required' => 'Foto wajib dipilih.',
+            'photo.mimes' => 'Format foto harus JPG, JPEG, atau PNG.',
+            'photo.max' => 'Ukuran file maksimal 2MB.',
+            'type.required' => 'Tipe foto wajib dipilih.',
+        ]);
+
+        $path = $this->workReportImageStorage->storeCompressed($validated['photo'], 'work-reports');
+
+        $unitIndex = $validated['unit_index'] ?? null;
+        $caption = $validated['caption'] ?? '';
+
+        $photo = new WorkReportPhoto([
+            'work_report_id' => $work_report->id,
+            'type' => $validated['type'],
+            'photo_path' => $path,
+            'caption' => $unitIndex !== null ? 'ac_unit_'.$unitIndex.':'.$caption : ($caption !== '' ? $caption : null),
+            'sort_order' => $unitIndex !== null ? $unitIndex : 0,
+        ]);
+        $photo->save();
+
+        $this->syncLegacyPhotoFields($work_report);
+
+        return response()->json([
+            'id' => $photo->id,
+            'photo_url' => $photo->photo_url,
+            'type' => $photo->type,
+            'caption' => $caption,
+        ], 201);
+    }
+
+    /**
+     * Delete a single draft photo (file + row).
+     */
+    public function deletePhoto(WorkReport $work_report, WorkReportPhoto $photo): JsonResponse
+    {
+        $user = Auth::user();
+
+        $this->authorizeOperatorAccess($work_report);
+
+        if ($work_report->status !== WorkReport::STATUS_DRAFT) {
+            return response()->json(['message' => 'Foto hanya dapat dihapus pada draft.'], 403);
+        }
+
+        if ((int) $photo->work_report_id !== (int) $work_report->id) {
+            return response()->json(['message' => 'Foto tidak ditemukan pada laporan ini.'], 404);
+        }
+
+        $this->deleteStoredPhoto($photo->photo_path);
+        $photo->delete();
+
+        $this->syncLegacyPhotoFields($work_report);
+
+        return response()->json(['deleted' => true]);
+    }
+
+    /**
+     * Sync the legacy JSON photo columns (before_photos / after_photos) from
+     * the relational work_report_photos table.
+     */
+    private function syncLegacyPhotoFields(WorkReport $workReport): void
+    {
+        $allBefore = $workReport->beforePhotoItems()->pluck('photo_path')->toArray();
+        $allAfter = $workReport->afterPhotoItems()->pluck('photo_path')->toArray();
+
+        $workReport->forceFill([
+            'before_photos' => $allBefore ?: null,
+            'after_photos' => $allAfter ?: null,
+        ])->save();
     }
 
     /**

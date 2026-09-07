@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { StatusBadge } from '@/Components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -206,17 +207,14 @@ export default function Index({ invoices, clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Invoice
-                    </h2>
+                <PageHeader title="Invoice" description="Pantau tagihan, jatuh tempo, dan pembayaran klien." actions={
                     <Link href="/invoices/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Buat Invoice
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Invoice" />
@@ -274,7 +272,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                     {invoices.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {invoices.from}–{invoices.to} dari{' '}
+                                Menampilkan {invoices.from}-{invoices.to} dari{' '}
                                 {invoices.total} data
                             </p>
 

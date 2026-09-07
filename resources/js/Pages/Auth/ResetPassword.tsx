@@ -32,6 +32,11 @@ export default function ResetPassword({
         <GuestLayout>
             <Head title="Reset Password" />
 
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold tracking-[-0.03em]">Buat password baru</h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Gunakan password yang panjang dan unik untuk akun Anda.</p>
+            </div>
+
             <form onSubmit={submit}>
                 <div>
                     <InputLabel htmlFor="email" value="Email" />
@@ -69,7 +74,7 @@ export default function ResetPassword({
                 <div className="mt-4">
                     <InputLabel
                         htmlFor="password_confirmation"
-                        value="Confirm Password"
+                        value="Konfirmasi Password"
                     />
 
                     <TextInput
@@ -90,8 +95,8 @@ export default function ResetPassword({
                 </div>
 
                 <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Reset Password
+                    <PrimaryButton className="w-full" disabled={processing}>
+                        Simpan Password Baru
                     </PrimaryButton>
                 </div>
             </form>

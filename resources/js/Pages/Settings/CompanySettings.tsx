@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,14 +131,10 @@ export default function CompanySettings({ settings }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Pengaturan Perusahaan
-                    </h2>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                        Kelola informasi perusahaan yang tampil di surat BAP dan Invoice
-                    </p>
-                </div>
+                <PageHeader
+                    title="Pengaturan Perusahaan"
+                    description="Kelola identitas, kontak, dan rekening yang tampil pada dokumen resmi."
+                />
             }
         >
             <Head title="Pengaturan Perusahaan" />

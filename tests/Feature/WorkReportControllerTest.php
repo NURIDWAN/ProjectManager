@@ -45,7 +45,7 @@ class WorkReportControllerTest extends TestCase
 
     // === INDEX ===
 
-    public function test_technician_can_view_own_reports_index(): void
+    public function test_technician_sees_all_reports_in_index(): void
     {
         WorkReport::factory()->create(['technician_id' => $this->technician->id]);
         WorkReport::factory()->create(['technician_id' => $this->otherTechnician->id]);
@@ -54,7 +54,7 @@ class WorkReportControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
-            ->has('workReports.data', 1)
+            ->has('workReports.data', 2)
         );
     }
 
@@ -85,7 +85,7 @@ class WorkReportControllerTest extends TestCase
             ->assertJsonPath('component', 'WorkReports/Index');
     }
 
-    public function test_staff_can_view_own_reports_index(): void
+    public function test_staff_sees_all_reports_in_index(): void
     {
         WorkReport::factory()->create(['technician_id' => $this->staff->id]);
         WorkReport::factory()->create(['technician_id' => $this->technician->id]);
@@ -94,7 +94,7 @@ class WorkReportControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('WorkReports/Index')
-            ->has('workReports.data', 1)
+            ->has('workReports.data', 2)
         );
     }
 
@@ -341,13 +341,15 @@ class WorkReportControllerTest extends TestCase
         );
     }
 
-    public function test_technician_cannot_view_other_report(): void
+    public function test_any_operator_can_view_other_report(): void
     {
         $report = WorkReport::factory()->create(['technician_id' => $this->otherTechnician->id]);
 
         $response = $this->actingAs($this->technician)->get("/work-reports/{$report->id}");
 
-        $response->assertStatus(403);
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('WorkReports/Show')
+        );
     }
 
     public function test_admin_can_view_any_report(): void
@@ -384,15 +386,16 @@ class WorkReportControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_technician_cannot_edit_other_technicians_report(): void
+    public function test_any_operator_can_edit_other_technicians_draft(): void
     {
         $report = WorkReport::factory()->create([
             'technician_id' => $this->otherTechnician->id,
+            'status' => WorkReport::STATUS_DRAFT,
         ]);
 
         $response = $this->actingAs($this->technician)->get("/work-reports/{$report->id}/edit");
 
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
     // === UPDATE ===
@@ -460,7 +463,7 @@ class WorkReportControllerTest extends TestCase
         $this->assertDatabaseHas('work_reports', ['id' => $report->id]);
     }
 
-    public function test_technician_cannot_delete_other_technicians_report(): void
+    public function test_any_operator_can_delete_other_technicians_draft(): void
     {
         $report = WorkReport::factory()->create([
             'technician_id' => $this->otherTechnician->id,
@@ -468,7 +471,8 @@ class WorkReportControllerTest extends TestCase
 
         $response = $this->actingAs($this->technician)->delete("/work-reports/{$report->id}");
 
-        $response->assertStatus(403);
+        $response->assertRedirect(route('work-reports.index'));
+        $this->assertDatabaseMissing('work_reports', ['id' => $report->id]);
     }
 
     // === SUBMIT ===
@@ -480,6 +484,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => 'Complete description',
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -503,6 +508,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => null,
             'category_id' => $this->category->id,
             'description' => 'Test',
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -523,6 +529,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => $this->client->id,
             'category_id' => null,
             'description' => 'Test',
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -539,6 +546,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => null,
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -548,6 +556,27 @@ class WorkReportControllerTest extends TestCase
         $response->assertSessionHasErrors('description');
     }
 
+    public function test_submit_fails_without_area(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'description' => 'Test description',
+            'area' => null,
+            'after_photos' => ['work-reports/photo1.jpg'],
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+
+        $response = $this->actingAs($this->technician)->post("/work-reports/{$report->id}/submit");
+
+        $response->assertSessionHasErrors('area');
+        $this->assertDatabaseHas('work_reports', [
+            'id' => $report->id,
+            'status' => 'draft',
+        ]);
+    }
+
     public function test_submit_fails_without_after_photos(): void
     {
         $report = WorkReport::factory()->create([
@@ -555,6 +584,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => 'Test description',
+            'area' => 'Area Test',
             'after_photos' => null,
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -571,6 +601,7 @@ class WorkReportControllerTest extends TestCase
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => 'Test description',
+            'area' => 'Area Test',
             'after_photos' => [],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
@@ -580,59 +611,69 @@ class WorkReportControllerTest extends TestCase
         $response->assertSessionHasErrors('after_photos');
     }
 
-    public function test_technician_cannot_submit_other_technicians_report(): void
+    public function test_any_operator_can_submit_other_technicians_draft(): void
     {
         $report = WorkReport::factory()->create([
             'technician_id' => $this->otherTechnician->id,
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => 'Test',
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
 
         $response = $this->actingAs($this->technician)->post("/work-reports/{$report->id}/submit");
 
-        $response->assertStatus(403);
+        $response->assertRedirect(route('work-reports.index'));
+        $this->assertDatabaseHas('work_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
     }
 
-    public function test_staff_cannot_submit_other_users_report(): void
+    public function test_staff_can_submit_other_users_draft(): void
     {
         $report = WorkReport::factory()->create([
             'technician_id' => $this->technician->id,
             'client_id' => $this->client->id,
             'category_id' => $this->category->id,
             'description' => 'Test',
+            'area' => 'Area Test',
             'after_photos' => ['work-reports/photo1.jpg'],
             'status' => WorkReport::STATUS_DRAFT,
         ]);
 
         $response = $this->actingAs($this->staff)->post("/work-reports/{$report->id}/submit");
 
-        $response->assertStatus(403);
+        $response->assertRedirect(route('work-reports.index'));
+        $this->assertDatabaseHas('work_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
     }
 
     // === DATA ISOLATION ===
 
-    public function test_technician_only_sees_own_reports_in_index(): void
+    public function test_technician_sees_all_reports_including_others_in_index(): void
     {
         WorkReport::factory()->count(3)->create(['technician_id' => $this->technician->id]);
         WorkReport::factory()->count(2)->create(['technician_id' => $this->otherTechnician->id]);
 
         $response = $this->actingAs($this->technician)->get('/work-reports');
 
-        $response->assertInertia(fn ($page) => $page->has('workReports.data', 3)
+        $response->assertInertia(fn ($page) => $page->has('workReports.data', 5)
         );
     }
 
-    public function test_staff_only_sees_own_reports_in_index(): void
+    public function test_staff_sees_all_reports_including_others_in_index(): void
     {
         WorkReport::factory()->count(3)->create(['technician_id' => $this->staff->id]);
         WorkReport::factory()->count(2)->create(['technician_id' => $this->technician->id]);
 
         $response = $this->actingAs($this->staff)->get('/work-reports');
 
-        $response->assertInertia(fn ($page) => $page->has('workReports.data', 3)
+        $response->assertInertia(fn ($page) => $page->has('workReports.data', 5)
         );
     }
 }
