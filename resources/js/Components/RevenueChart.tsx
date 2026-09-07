@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { EmptyState } from '@/Components/EmptyState';
+import { ChartNoAxesCombined } from 'lucide-react';
 
 interface MonthlyRevenueData {
     month: string;
@@ -66,7 +68,7 @@ function formatMonthLabel(month: string): string {
 const chartConfig = {
     total: {
         label: 'Pendapatan',
-        color: 'hsl(var(--primary))',
+        color: 'var(--chart-1)',
     },
 } satisfies ChartConfig;
 
@@ -102,8 +104,27 @@ export function RevenueChart({ data, isLoading = false }: RevenueChartProps) {
     // Calculate total revenue for the period
     const totalRevenue = data.reduce((sum, entry) => sum + entry.total, 0);
 
+    if (data.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Pendapatan 12 Bulan Terakhir</CardTitle>
+                    <CardDescription>Invoice berstatus paid akan tampil pada grafik ini.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <EmptyState
+                        title="Belum ada data pendapatan"
+                        description="Tandai invoice yang sudah dibayar untuk mulai melihat tren pendapatan."
+                        icon={<ChartNoAxesCombined className="size-5" />}
+                        className="min-h-72"
+                    />
+                </CardContent>
+            </Card>
+        );
+    }
+
     return (
-        <Card>
+        <Card className="min-w-0">
             <CardHeader className="flex flex-row items-start justify-between pb-2">
                 <div className="space-y-1">
                     <CardTitle className="text-base font-semibold">
@@ -200,7 +221,7 @@ export function RevenueChart({ data, isLoading = false }: RevenueChartProps) {
                             activeDot={{
                                 r: 5,
                                 fill: 'var(--color-total)',
-                                stroke: 'hsl(var(--background))',
+                                stroke: 'var(--background)',
                                 strokeWidth: 2,
                             }}
                         />

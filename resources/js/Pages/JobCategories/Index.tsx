@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import { Button } from '@/components/ui/button';
@@ -115,17 +116,14 @@ export default function JobCategoriesIndex({ categories, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Kategori Pekerjaan
-                    </h2>
+                <PageHeader title="Kategori Pekerjaan" description="Atur pengelompokan pekerjaan untuk laporan teknisi." actions={
                     <Link href="/job-categories/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Tambah Kategori
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Kategori Pekerjaan" />

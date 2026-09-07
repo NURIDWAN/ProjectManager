@@ -21,11 +21,11 @@ export default function ConfirmPassword() {
 
     return (
         <GuestLayout>
-            <Head title="Confirm Password" />
+            <Head title="Konfirmasi Password" />
 
-            <div className="mb-4 text-sm text-gray-600">
-                This is a secure area of the application. Please confirm your
-                password before continuing.
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold tracking-[-0.03em]">Konfirmasi akses</h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Masukkan kembali password sebelum melanjutkan ke area aman.</p>
             </div>
 
             <form onSubmit={submit}>
@@ -46,8 +46,8 @@ export default function ConfirmPassword() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Confirm
+                    <PrimaryButton className="w-full" disabled={processing}>
+                        Konfirmasi
                     </PrimaryButton>
                 </div>
             </form>

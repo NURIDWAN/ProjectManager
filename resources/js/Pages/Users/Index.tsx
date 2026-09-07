@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import { Input } from '@/components/ui/input';
@@ -185,17 +186,14 @@ export default function UsersIndex({ users, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Pengguna
-                    </h2>
+                <PageHeader title="Pengguna" description="Kelola akun tim dan role yang terhubung ke setiap pengguna." actions={
                     <Link href="/users/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
-                            Tambah User
+                            <Plus className="size-4" />
+                            Tambah Pengguna
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Pengguna" />
@@ -225,7 +223,7 @@ export default function UsersIndex({ users, filters }: Props) {
                     {users.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {users.from}–{users.to} dari {users.total} data
+                                Menampilkan {users.from}-{users.to} dari {users.total} data
                             </p>
                             <div className="hidden items-center gap-2 sm:flex">
                                 {users.links.map((link, index) => (

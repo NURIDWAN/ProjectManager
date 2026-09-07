@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { FileUpload, PhotoWithCaption } from '@/Components/FileUpload';
+import { DraftPhotoUpload, DraftPhoto } from '@/Components/DraftPhotoUpload';
 import AcMeasurementForm, {
     AcMeasurementEntry,
     AcEntryPhotos,
     EMPTY_ENTRY,
     EMPTY_PHOTOS,
 } from '@/Components/AcMeasurementForm';
+import { SaveStatusIndicator } from '@/Components/SaveStatusIndicator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -25,28 +26,144 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Send, ClipboardList, Camera } from 'lucide-react';
+import { ArrowLeft, Save, Send, ClipboardList, Camera, UserRoundCog, TriangleAlert } from 'lucide-react';
+import { useWorkReportAutosave } from '@/hooks/useWorkReportAutosave';
 
 interface Props {
     clients: { id: number; name: string }[];
     categories: { id: number; name: string; preset_identifier: string | null }[];
+    technicians: { id: number; name: string }[];
 }
 
-export default function Create({ clients, categories }: Props) {
+export default function Create({ clients, categories, technicians }: Props) {
     const [clientId, setClientId] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [description, setDescription] = useState('');
     const [area, setArea] = useState('');
-    const [beforePhotos, setBeforePhotos] = useState<PhotoWithCaption[]>([]);
-    const [afterPhotos, setAfterPhotos] = useState<PhotoWithCaption[]>([]);
+    const [beforePhotos, setBeforePhotos] = useState<DraftPhoto[]>([]);
+    const [afterPhotos, setAfterPhotos] = useState<DraftPhoto[]>([]);
     const [presetData, setPresetData] = useState<AcMeasurementEntry[]>([]);
     const [acPhotos, setAcPhotos] = useState<AcEntryPhotos[]>([]);
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    const reportIdRef = useRef<number | null>(null);
+
     const selectedCategory = categories.find((c) => String(c.id) === categoryId);
     const isAcCategory = selectedCategory?.preset_identifier === 'ac_maintenance';
+
+    // Detail Pekerjaan harus lengkap sebelum dokumentasi bisa diakses
+    const isDetailComplete = Boolean(clientId && categoryId && description.trim() && area.trim());
+
+    // === Autosave wiring ===
+
+    const handleDraftCreated = (id: number) => {
+        reportIdRef.current = id;
+    };
+
+    const buildAutosavePayload = useCallback((): Record<string, unknown> | false => {
+        const hasAnyData =
+            clientId || categoryId || description.trim() || area || presetData.length > 0;
+        if (!hasAnyData) {
+            return false; // don't create empty drafts
+        }
+
+        return {
+            client_id: clientId || null,
+            category_id: categoryId || null,
+            description: description || null,
+            area: area || null,
+            preset_data: isAcCategory && presetData.length > 0 ? JSON.stringify(presetData) : null,
+            photo_captions: Object.fromEntries(
+                [...beforePhotos, ...afterPhotos]
+                    .filter((p) => p.id > 0 && p.caption !== '')
+                    .map((p) => [p.id, p.caption]),
+            ),
+        };
+    }, [clientId, categoryId, description, area, presetData, isAcCategory, beforePhotos, afterPhotos]);
+
+    const { state, lastSavedAt, markDirty, flush, reset } = useWorkReportAutosave({
+        buildPayload: buildAutosavePayload,
+        onDraftCreated: handleDraftCreated,
+        onError: (message) => toast.error(message),
+    });
+
+    const touch = () => markDirty();
+
+    // === Draft photo upload helpers ===
+
+    const getCsrf = () =>
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+
+    const uploadDraftPhoto = useCallback(
+        async (file: File, caption: string): Promise<DraftPhoto> => {
+            const body = new FormData();
+            body.append('photo', file);
+            body.append('type', 'before');
+            body.append('caption', caption);
+
+            const response = await fetch(`/work-reports/${reportIdRef.current}/photos`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': getCsrf(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body,
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                toast.error(
+                    (data as { message?: string } | null)?.message ?? 'Gagal mengunggah foto.',
+                );
+                throw new Error('upload failed');
+            }
+
+            return (await response.json()) as DraftPhoto;
+        },
+        [],
+    );
+
+    const deleteDraftPhoto = useCallback(async (photo: DraftPhoto) => {
+        if (photo.id <= 0) return;
+
+        await fetch(`/work-reports/${reportIdRef.current}/photos/${photo.id}`, {
+            method: 'DELETE',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': getCsrf(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+    }, []);
+
+    // Ensures the draft exists before a photo can be attached to it.
+    const ensureDraftThenUpload = useCallback(
+        async (file: File, caption: string): Promise<DraftPhoto> => {
+            if (reportIdRef.current === null) {
+                const ok = await flush();
+                if (!ok || reportIdRef.current === null) {
+                    toast.error('Tunggu draft tersimpan sebelum mengunggah foto.');
+                    throw new Error('no draft');
+                }
+            }
+
+            return uploadDraftPhoto(file, caption);
+        },
+        [flush, uploadDraftPhoto],
+    );
+
+    // === Category change ===
 
     const handleCategoryChange = (newValue: string | null) => {
         const newCategory = categories.find((c) => String(c.id) === newValue);
@@ -75,69 +192,29 @@ export default function Create({ clients, categories }: Props) {
             setPresetData([{ ...EMPTY_ENTRY }]);
             setAcPhotos([{ ...EMPTY_PHOTOS }]);
         }
+        touch();
     };
 
-    const buildFormData = () => {
-        const formData = new FormData();
-        if (clientId) formData.append('client_id', clientId);
-        if (categoryId) formData.append('category_id', categoryId);
-        if (description) formData.append('description', description);
-        if (area) formData.append('area', area);
+    // === Manual save / submit ===
 
-        // Include preset_data as JSON when AC category is selected
-        if (isAcCategory && presetData.length > 0) {
-            formData.append('preset_data', JSON.stringify(presetData));
-
-            // Include per-unit AC photos with captions
-            acPhotos.forEach((entryPhotos, entryIndex) => {
-                if (entryPhotos) {
-                    entryPhotos.before.forEach((photo, photoIdx) => {
-                        formData.append(`ac_photos_before_${entryIndex}[]`, photo.file);
-                        formData.append(`ac_captions_before_${entryIndex}[]`, photo.caption);
-                    });
-                    entryPhotos.after.forEach((photo, photoIdx) => {
-                        formData.append(`ac_photos_after_${entryIndex}[]`, photo.file);
-                        formData.append(`ac_captions_after_${entryIndex}[]`, photo.caption);
-                    });
-                }
-            });
-        }
-
-        beforePhotos.forEach((photo, index) => {
-            formData.append('before_photos[]', photo.file);
-            formData.append(`before_captions[${index}]`, photo.caption);
-        });
-        afterPhotos.forEach((photo, index) => {
-            formData.append('after_photos[]', photo.file);
-            formData.append(`after_captions[${index}]`, photo.caption);
-        });
-
-        return formData;
-    };
-
-    const handleSaveDraft = (e: React.FormEvent) => {
+    const handleSaveDraft = async (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
         setErrors({});
 
-        const formData = buildFormData();
-
-        router.post('/work-reports', formData, {
-            forceFormData: true,
-            onSuccess: () => {
-                toast.success('Laporan kerja berhasil disimpan sebagai draft.');
-            },
-            onError: (errs) => {
-                setErrors(errs as Record<string, string>);
-                toast.error('Gagal menyimpan laporan kerja.');
-            },
-            onFinish: () => {
-                setProcessing(false);
-            },
-        });
+        // Persist everything (including photos already uploaded) via autosave
+        const saved = await flush();
+        if (saved) {
+            toast.success('Draft laporan kerja tersimpan.');
+            reset();
+            router.visit('/work-reports');
+        } else {
+            setProcessing(false);
+            toast.error('Gagal menyimpan draft. Periksa koneksi Anda.');
+        }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
         setErrors({});
@@ -147,8 +224,11 @@ export default function Create({ clients, categories }: Props) {
         if (!clientId) validationErrors.client_id = 'Klien wajib dipilih.';
         if (!categoryId) validationErrors.category_id = 'Kategori wajib dipilih.';
         if (!description.trim()) validationErrors.description = 'Deskripsi wajib diisi.';
+        if (!area.trim()) validationErrors.area = 'Area wajib diisi.';
         // AC category uses per-unit photos, so skip global after_photos requirement
-        if (!isAcCategory && afterPhotos.length === 0) validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
+        if (!isAcCategory && afterPhotos.filter((p) => p.id > 0).length === 0) {
+            validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
+        }
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -157,17 +237,21 @@ export default function Create({ clients, categories }: Props) {
             return;
         }
 
-        const formData = buildFormData();
-        formData.append('_submit', '1');
+        // Save first, then submit (report may not exist yet)
+        const saved = await flush();
+        if (!saved || reportIdRef.current === null) {
+            toast.error('Gagal menyiapkan laporan. Coba lagi.');
+            setProcessing(false);
+            return;
+        }
 
-        router.post('/work-reports', formData, {
-            forceFormData: true,
+        router.post(`/work-reports/${reportIdRef.current}/submit`, {}, {
             onSuccess: () => {
-                toast.success('Laporan kerja berhasil disimpan dan disubmit.');
+                toast.success('Laporan kerja berhasil disubmit.');
             },
             onError: (errs) => {
-                setErrors(errs as Record<string, string>);
-                toast.error('Gagal menyimpan laporan kerja.');
+                const errorMsg = Object.values(errs).flat().join(', ');
+                toast.error(errorMsg || 'Gagal submit laporan kerja.');
             },
             onFinish: () => {
                 setProcessing(false);
@@ -202,21 +286,24 @@ export default function Create({ clients, categories }: Props) {
                     {/* Detail Pekerjaan */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center gap-2">
-                                <ClipboardList className="size-5 text-muted-foreground" />
-                                <div>
-                                    <CardTitle className="text-base">Detail Pekerjaan</CardTitle>
-                                    <CardDescription>
-                                        Informasi klien, kategori, dan deskripsi aktivitas
-                                    </CardDescription>
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <ClipboardList className="size-5 text-muted-foreground" />
+                                    <div>
+                                        <CardTitle className="text-base">Detail Pekerjaan</CardTitle>
+                                        <CardDescription>
+                                            Informasi klien, kategori, dan deskripsi aktivitas
+                                        </CardDescription>
+                                    </div>
                                 </div>
+                                <SaveStatusIndicator state={state} lastSavedAt={lastSavedAt} />
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Klien */}
                             <div className="space-y-2">
-                                <Label htmlFor="client_id">Klien</Label>
-                                <Select value={clientId} onValueChange={(v) => setClientId(v ?? '')} items={Object.fromEntries(clients.map(c => [String(c.id), c.name]))}>
+                                <Label htmlFor="client_id">Klien <span className="text-destructive">*</span></Label>
+                                <Select value={clientId} onValueChange={(v) => { setClientId(v ?? ''); touch(); }} items={Object.fromEntries(clients.map(c => [String(c.id), c.name]))}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih klien" />
                                     </SelectTrigger>
@@ -239,7 +326,7 @@ export default function Create({ clients, categories }: Props) {
 
                             {/* Kategori */}
                             <div className="space-y-2">
-                                <Label htmlFor="category_id">Kategori Pekerjaan</Label>
+                                <Label htmlFor="category_id">Kategori Pekerjaan <span className="text-destructive">*</span></Label>
                                 <Select value={categoryId} onValueChange={handleCategoryChange} items={Object.fromEntries(categories.map(c => [String(c.id), c.name]))}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih kategori" />
@@ -263,11 +350,11 @@ export default function Create({ clients, categories }: Props) {
 
                             {/* Deskripsi */}
                             <div className="space-y-2">
-                                <Label htmlFor="description">Deskripsi Aktivitas</Label>
+                                <Label htmlFor="description">Deskripsi Aktivitas <span className="text-destructive">*</span></Label>
                                 <textarea
                                     id="description"
                                     value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
+                                    onChange={(e) => { setDescription(e.target.value); touch(); }}
                                     placeholder="Jelaskan aktivitas pekerjaan..."
                                     rows={4}
                                     className="w-full min-w-0 rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
@@ -280,11 +367,11 @@ export default function Create({ clients, categories }: Props) {
 
                             {/* Area */}
                             <div className="space-y-2">
-                                <Label htmlFor="area">Area</Label>
+                                <Label htmlFor="area">Area <span className="text-destructive">*</span></Label>
                                 <Input
                                     id="area"
                                     value={area}
-                                    onChange={(e) => setArea(e.target.value)}
+                                    onChange={(e) => { setArea(e.target.value); touch(); }}
                                     placeholder="Contoh: Area Floor (GREE 20 PK)"
                                 />
                                 {errors.area && (
@@ -296,13 +383,44 @@ export default function Create({ clients, categories }: Props) {
 
                     {/* AC Measurement Form - conditionally rendered */}
                     {isAcCategory && (
-                        <AcMeasurementForm
-                            entries={presetData}
-                            onChange={setPresetData}
-                            errors={errors}
-                            photos={acPhotos}
-                            onPhotosChange={setAcPhotos}
-                        />
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center gap-2">
+                                    <ClipboardList className="size-5 text-muted-foreground" />
+                                    <div>
+                                        <CardTitle className="text-base">Data Pengukuran AC</CardTitle>
+                                        <CardDescription>
+                                            Input data pengukuran teknis unit AC
+                                        </CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="px-3 sm:px-6">
+                                {!isDetailComplete && (
+                                    <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
+                                        <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <div>
+                                            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                                                Lengkapi Detail Pekerjaan terlebih dahulu
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                                Isi semua data wajib (klien, kategori, deskripsi, dan area) sebelum mengisi data pengukuran dan dokumentasi.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                <AcMeasurementForm
+                                    entries={presetData}
+                                    onChange={(entries) => { setPresetData(entries); touch(); }}
+                                    errors={errors}
+                                    disabled={!isDetailComplete}
+                                    photos={acPhotos as unknown as AcEntryPhotos[]}
+                                    onPhotosChange={(photos) => { setAcPhotos(photos as unknown as AcEntryPhotos[]); touch(); }}
+                                    uploadFile={ensureDraftThenUpload}
+                                    deletePhoto={deleteDraftPhoto}
+                                />
+                            </CardContent>
+                        </Card>
                     )}
 
                     {/* Dokumentasi Foto - hidden for AC category since photos are per unit */}
@@ -314,35 +432,54 @@ export default function Create({ clients, categories }: Props) {
                                 <div>
                                     <CardTitle className="text-base">Dokumentasi Foto</CardTitle>
                                     <CardDescription>
-                                        Upload foto sebelum dan sesudah pekerjaan dengan keterangan
+                                        Upload foto sebelum dan sesudah pekerjaan dengan keterangan.
+                                        Foto langsung tersimpan saat dipilih.
                                     </CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {/* Foto Sebelum */}
-                            <div className="space-y-2">
-                                <Label>Foto Sebelum</Label>
-                                <FileUpload
-                                    label="Upload foto sebelum"
-                                    withCaption
-                                    onPhotosChange={setBeforePhotos}
-                                    onChange={() => {}}
-                                    error={errors.before_photos}
-                                />
-                            </div>
+                            {!isDetailComplete ? (
+                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
+                                    <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <div>
+                                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                                            Lengkapi Detail Pekerjaan terlebih dahulu
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                            Isi semua data wajib (klien, kategori, deskripsi, dan area) sebelum mengunggah dokumentasi foto.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Foto Sebelum */}
+                                    <div className="space-y-2">
+                                        <Label>Foto Sebelum</Label>
+                                        <DraftPhotoUpload
+                                            label="Upload foto sebelum"
+                                            onPhotosChange={setBeforePhotos}
+                                            uploadFile={ensureDraftThenUpload}
+                                            deletePhoto={deleteDraftPhoto}
+                                            error={errors.before_photos}
+                                        />
+                                    </div>
 
-                            {/* Foto Sesudah */}
-                            <div className="space-y-2">
-                                <Label>Foto Sesudah</Label>
-                                <FileUpload
-                                    label="Upload foto sesudah"
-                                    withCaption
-                                    onPhotosChange={setAfterPhotos}
-                                    onChange={() => {}}
-                                    error={errors.after_photos}
-                                />
-                            </div>
+                                    {/* Foto Sesudah */}
+                                    <div className="space-y-2">
+                                        <Label>Foto Sesudah <span className="text-destructive">*</span></Label>
+                                        <DraftPhotoUpload
+                                            label="Upload foto sesudah"
+                                            onPhotosChange={setAfterPhotos}
+                                            uploadFile={(file, caption) =>
+                                                ensureDraftThenUpload(file, caption).then((photo) => ({ ...photo, type: 'after' as const }))
+                                            }
+                                            deletePhoto={deleteDraftPhoto}
+                                            error={errors.after_photos}
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
                     )}
@@ -355,12 +492,14 @@ export default function Create({ clients, categories }: Props) {
                             </Button>
                         </Link>
                         <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:items-center sm:gap-3">
+
+                            <SaveStatusIndicator state={state} lastSavedAt={lastSavedAt} className="sm:hidden" />
                             <Button
                                 type="button"
                                 variant="outline"
                                 className="w-full sm:w-auto"
-                                disabled={processing}
-                                onClick={handleSaveDraft}
+                                disabled={processing || state === 'saving'}
+                                onClick={(e) => void handleSaveDraft(e)}
                             >
                                 <Save className="mr-2 size-4" />
                                 {processing ? 'Menyimpan...' : 'Simpan Draft'}
@@ -368,8 +507,8 @@ export default function Create({ clients, categories }: Props) {
                             <Button
                                 type="button"
                                 className="w-full sm:w-auto"
-                                disabled={processing}
-                                onClick={handleSubmit}
+                                disabled={processing || state === 'saving'}
+                                onClick={(e) => void handleSubmit(e)}
                             >
                                 <Send className="mr-2 size-4" />
                                 {processing ? 'Menyimpan...' : 'Submit'}
@@ -378,6 +517,7 @@ export default function Create({ clients, categories }: Props) {
                     </div>
                 </form>
             </div>
+
         </AuthenticatedLayout>
     );
 }

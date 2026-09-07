@@ -1,8 +1,9 @@
-import { ChangeEvent, useRef } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import { Button } from '@/components/ui/button';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Camera, Loader2 } from 'lucide-react';
+import { PhotoCaptureModal, CapturedPhoto } from './PhotoCaptureModal';
 
 export interface AcPhotoItem {
     file: File;
@@ -43,6 +44,8 @@ export interface AcMeasurementEntry {
 }
 
 export interface AcMeasurementFormProps {
+    uploadFile?: (file: File, caption: string) => Promise<any>;
+    deletePhoto?: (photo: any) => Promise<void>;
     entries: AcMeasurementEntry[];
     onChange: (entries: AcMeasurementEntry[]) => void;
     errors?: Record<string, string>;
@@ -108,6 +111,8 @@ export const EMPTY_PHOTOS: AcEntryPhotos = {
 };
 
 export default function AcMeasurementForm({
+    uploadFile,
+    deletePhoto,
     entries,
     onChange,
     errors = {},
@@ -115,6 +120,24 @@ export default function AcMeasurementForm({
     photos = [],
     onPhotosChange,
 }: AcMeasurementFormProps) {
+    const handleUploadedPhoto = (entryIndex: number, type: 'before' | 'after', uploadedPhoto: any) => {
+        if (!onPhotosChange) return;
+        const updatedPhotos = [...photos];
+        while (updatedPhotos.length <= entryIndex) {
+            updatedPhotos.push({ ...EMPTY_PHOTOS });
+        }
+        const key = type === 'before' ? 'existingBefore' : 'existingAfter';
+        updatedPhotos[entryIndex] = {
+            ...updatedPhotos[entryIndex],
+            [key]: [...updatedPhotos[entryIndex][key], { 
+                id: uploadedPhoto.id, 
+                photo_url: uploadedPhoto.photo_url, 
+                caption: uploadedPhoto.caption || null 
+            }],
+        };
+        onPhotosChange(updatedPhotos);
+    };
+
     const updateEntry = (index: number, field: keyof AcMeasurementEntry, value: string | number) => {
         const updated = [...entries];
         updated[index] = { ...updated[index], [field]: value };
@@ -229,10 +252,10 @@ export default function AcMeasurementForm({
     };
 
     const inputClassName =
-        'h-11 w-full min-w-0 rounded-md border-gray-300 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:h-9 sm:text-sm';
+        'h-11 w-full min-w-0 rounded-md border-input bg-background px-3 text-base shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted sm:h-10 sm:text-sm';
 
     const selectClassName =
-        'h-11 w-full min-w-0 rounded-md border-gray-300 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 sm:h-9 sm:text-sm';
+        'h-11 w-full min-w-0 rounded-md border-input bg-background px-3 text-base shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted sm:h-10 sm:text-sm';
 
     return (
         <div className="min-w-0 space-y-6">
@@ -245,7 +268,7 @@ export default function AcMeasurementForm({
                         type="button"
                         onClick={addEntry}
                         disabled={entries.length >= MAX_ENTRIES}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white transition duration-150 ease-in-out hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 sm:min-h-0 sm:w-auto sm:py-1.5"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs outline-none transition-[color,background-color,box-shadow,transform] hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/30 active:translate-y-px disabled:opacity-50 sm:w-auto"
                     >
                         + Tambah Unit AC
                     </button>
@@ -532,6 +555,9 @@ export default function AcMeasurementForm({
                                         onRemove={removePhoto}
                                         onRemoveExisting={removeExistingPhoto}
                                         onCaptionChange={updatePhotoCaption}
+                                        uploadFile={uploadFile}
+                                        deletePhoto={deletePhoto}
+                                        onAddExisting={(p) => handleUploadedPhoto(index, 'before', p)}
                                     />
                                 </div>
                                 {/* Foto After */}
@@ -546,6 +572,9 @@ export default function AcMeasurementForm({
                                         onRemove={removePhoto}
                                         onRemoveExisting={removeExistingPhoto}
                                         onCaptionChange={updatePhotoCaption}
+                                        uploadFile={uploadFile}
+                                        deletePhoto={deletePhoto}
+                                        onAddExisting={(p) => handleUploadedPhoto(index, 'after', p)}
                                     />
                                 </div>
                             </div>
@@ -596,7 +625,7 @@ export default function AcMeasurementForm({
                     <button
                         type="button"
                         onClick={addEntry}
-                        className="inline-flex items-center rounded-md border border-dashed border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition duration-150 ease-in-out hover:border-gray-400 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        className="inline-flex min-h-10 items-center rounded-md border border-dashed border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground outline-none hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
                     >
                         + Tambah Unit AC ({entries.length}/{MAX_ENTRIES})
                     </button>
@@ -687,6 +716,9 @@ function PhotoUploadArea({
     onRemove,
     onRemoveExisting,
     onCaptionChange,
+    uploadFile,
+    deletePhoto,
+    onAddExisting,
 }: {
     entryIndex: number;
     type: 'before' | 'after';
@@ -696,12 +728,22 @@ function PhotoUploadArea({
     onRemove: (entryIndex: number, type: 'before' | 'after', photoIndex: number) => void;
     onRemoveExisting: (entryIndex: number, type: 'before' | 'after', photoId: number) => void;
     onCaptionChange: (entryIndex: number, type: 'before' | 'after', photoIndex: number, caption: string) => void;
+    uploadFile?: (file: File, caption: string) => Promise<any>;
+    deletePhoto?: (photo: any) => Promise<void>;
+    onAddExisting?: (photo: any) => void;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
+    const [modalOpen, setModalOpen] = useState(false);
+    
+    // Combine existing photos and in-flight photos for the modal view
+    const allExistingForModal = [
+        ...existingPhotos.map(p => ({ id: p.id, photo_url: p.photo_url, caption: p.caption || '' })),
+        ...photos.map((p, i) => ({ id: -Date.now() - i, photo_url: p.previewUrl, caption: p.caption, file: p.file }))
+    ] as CapturedPhoto[];
 
     return (
         <div className="min-w-0 space-y-3">
-            {/* Existing photos */}
+            {/* Existing photos (uploaded to server) */}
             {existingPhotos.length > 0 && (
                 <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                     {existingPhotos.map((photo) => (
@@ -727,7 +769,7 @@ function PhotoUploadArea({
                 </div>
             )}
 
-            {/* New photos with captions */}
+            {/* Offline/In-flight photos (not uploaded yet) */}
             {photos.length > 0 && (
                 <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
                     {photos.map((photo, idx) => (
@@ -741,7 +783,7 @@ function PhotoUploadArea({
                                     value={photo.caption}
                                     onChange={(e) => onCaptionChange(entryIndex, type, idx, e.target.value)}
                                     placeholder="Keterangan foto..."
-                                    className="w-full min-w-0 rounded border-gray-200 px-2 py-2 text-base focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 sm:py-1 sm:text-xs"
+                                    className="w-full min-w-0 rounded-md border-input bg-background px-2 py-2 text-base outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 sm:py-1 sm:text-xs"
                                     maxLength={255}
                                 />
                             </div>
@@ -758,15 +800,29 @@ function PhotoUploadArea({
                 </div>
             )}
 
-            {/* Upload button */}
-            <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                className="flex min-h-16 w-full cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-gray-300 px-3 py-4 text-gray-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >
-                <Upload className="mr-2 size-5 shrink-0 text-gray-500" />
-                <span className="text-sm font-medium">Upload foto</span>
-            </button>
+            {/* Upload & Camera actions */}
+            <div className="flex gap-2">
+                {uploadFile && (
+                    <button
+                        type="button"
+                        onClick={() => setModalOpen(true)} // this is replaced below manually
+                        className="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
+                    >
+                        <Camera className="mr-2 size-5 shrink-0" />
+                        <span className="text-sm font-medium">Ambil Foto/Upload</span>
+                    </button>
+                )}
+                {!uploadFile && (
+                    <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        className="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-md border border-dashed border-input bg-background px-3 text-muted-foreground outline-none hover:border-primary/45 hover:bg-primary/5 focus-visible:ring-3 focus-visible:ring-ring/30"
+                    >
+                        <Upload className="mr-2 size-5 shrink-0" />
+                        <span className="text-sm font-medium">Upload File</span>
+                    </button>
+                )}
+            </div>
             <input
                 ref={inputRef}
                 type="file"
@@ -778,6 +834,28 @@ function PhotoUploadArea({
                 }}
                 className="sr-only"
             />
+            
+            {uploadFile && (
+                <PhotoCaptureModal
+                    open={modalOpen}
+                    onOpenChange={setModalOpen}
+                    photoType={type}
+                    unitIndex={entryIndex}
+                    uploadFile={uploadFile}
+                    deletePhoto={async (p) => {
+                        if (deletePhoto && p.id > 0) {
+                            await deletePhoto(p);
+                            onRemoveExisting(entryIndex, type, p.id);
+                        } else {
+                            const idx = photos.findIndex(ph => ph.previewUrl === p.photo_url);
+                            if (idx >= 0) onRemove(entryIndex, type, idx);
+                        }
+                    }}
+                    onPhotoAdded={(p) => onAddExisting && onAddExisting(p)}
+                    existingPhotos={allExistingForModal}
+                    onPhotosChange={() => {}}
+                />
+            )}
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import { Button } from '@/components/ui/button';
@@ -188,17 +189,14 @@ export default function ServicesIndex({ services, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Jasa/Produk
-                    </h2>
+                <PageHeader title="Jasa/Produk" description="Kelola katalog item, satuan, dan harga untuk invoice." actions={
                     <Link href="/services/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Tambah Jasa/Produk
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Jasa/Produk" />

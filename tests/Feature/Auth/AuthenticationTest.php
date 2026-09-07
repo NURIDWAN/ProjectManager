@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\CompanySetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -15,6 +17,18 @@ class AuthenticationTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
+    }
+
+    public function test_login_screen_receives_company_identity(): void
+    {
+        CompanySetting::set('company_name', 'PT Uji Operasional');
+        CompanySetting::set('company_logo', 'company/logo.png');
+
+        $this->get('/login')->assertInertia(fn (Assert $page) => $page
+            ->component('Auth/Login')
+            ->where('company.name', 'PT Uji Operasional')
+            ->where('company.logoUrl', '/storage/company/logo.png')
+        );
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void

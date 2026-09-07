@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { ConfirmModal } from '@/Components/ConfirmModal';
 import { Input } from '@/components/ui/input';
@@ -170,17 +171,14 @@ export default function ClientsIndex({ clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Klien
-                    </h2>
+                <PageHeader title="Klien" description="Kelola identitas, kontak, dan status aktif klien perusahaan." actions={
                     <Link href="/clients/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Tambah Klien
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="Klien" />
@@ -224,7 +222,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                     {clients.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {clients.from}–{clients.to} dari {clients.total} data
+                                Menampilkan {clients.from}-{clients.to} dari {clients.total} data
                             </p>
                             <div className="hidden items-center gap-2 sm:flex">
                                 {clients.links.map((link, index) => (

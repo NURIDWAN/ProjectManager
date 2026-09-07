@@ -68,4 +68,8 @@ export type PageProps<
     auth: {
         user: User;
     };
+    company: {
+        name: string;
+        logoUrl: string | null;
+    };
 };

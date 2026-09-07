@@ -6,6 +6,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from '@/components/ui/sonner';
+import { ThemeProvider } from '@/Components/ThemeProvider';
 
 const LEGACY_SERVICE_WORKER_PATH = '/sw.js';
 
@@ -45,7 +46,11 @@ void removeLegacyServiceWorker().catch(() => {
     // A stale worker can also disappear between inspection and unregister.
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const initialPageElement = document.getElementById('app');
+const initialPage = initialPageElement?.dataset.page
+    ? JSON.parse(initialPageElement.dataset.page)
+    : null;
+const appName = initialPage?.props?.company?.name || import.meta.env.VITE_APP_NAME || 'ManPro';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -58,13 +63,13 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <>
+            <ThemeProvider>
                 <App {...props} />
                 <Toaster position="top-right" richColors />
-            </>
+            </ThemeProvider>
         );
     },
     progress: {
-        color: '#4B5563',
+        color: '#2563eb',
     },
 });

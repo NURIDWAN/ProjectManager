@@ -120,7 +120,7 @@ export default function UsersCreate({ roles }: Props) {
                                 {errors.name && (
                                     <p className="text-sm text-destructive">{errors.name.message}</p>
                                 )}
-                                {serverErrors?.name && (
+                                {serverErrors?.name && !errors.name && (
                                     <p className="text-sm text-destructive">{serverErrors.name}</p>
                                 )}
                             </div>
@@ -140,7 +140,7 @@ export default function UsersCreate({ roles }: Props) {
                                 {errors.email && (
                                     <p className="text-sm text-destructive">{errors.email.message}</p>
                                 )}
-                                {serverErrors?.email && (
+                                {serverErrors?.email && !errors.email && (
                                     <p className="text-sm text-destructive">{serverErrors.email}</p>
                                 )}
                             </div>
@@ -160,7 +160,7 @@ export default function UsersCreate({ roles }: Props) {
                                 {errors.password && (
                                     <p className="text-sm text-destructive">{errors.password.message}</p>
                                 )}
-                                {serverErrors?.password && (
+                                {serverErrors?.password && !errors.password && (
                                     <p className="text-sm text-destructive">{serverErrors.password}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">
@@ -191,7 +191,7 @@ export default function UsersCreate({ roles }: Props) {
                                 {errors.role && (
                                     <p className="text-sm text-destructive">{errors.role.message}</p>
                                 )}
-                                {serverErrors?.role && (
+                                {serverErrors?.role && !errors.role && (
                                     <p className="text-sm text-destructive">{serverErrors.role}</p>
                                 )}
                             </div>

@@ -107,7 +107,7 @@ export default function Create({ availableBaps }: Props) {
                         <Select
                             value={data.bap_id || 'none'}
                             onValueChange={(value) => setData('bap_id', value === 'none' ? '' : (value ?? ''))}
-                            items={Object.fromEntries([['none', '-- Pilih BAP --'], ...availableBaps.map(bap => [String(bap.id), `${bap.nomor_surat} — ${bap.client?.name ?? 'Unknown Client'}`])])}
+                            items={Object.fromEntries([['none', '-- Pilih BAP --'], ...availableBaps.map(bap => [String(bap.id), `${bap.nomor_surat} - ${bap.client?.name ?? 'Klien tidak diketahui'}`])])}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Pilih BAP yang sudah di-approve" />
@@ -115,8 +115,8 @@ export default function Create({ availableBaps }: Props) {
                             <SelectContent>
                                 <SelectItem value="none">-- Pilih BAP --</SelectItem>
                                 {availableBaps.map((bap) => (
-                                    <SelectItem key={bap.id} value={String(bap.id)} label={`${bap.nomor_surat} — ${bap.client?.name ?? 'Unknown Client'}`}>
-                                        {bap.nomor_surat} — {bap.client?.name ?? 'Unknown Client'}
+                                    <SelectItem key={bap.id} value={String(bap.id)} label={`${bap.nomor_surat} - ${bap.client?.name ?? 'Klien tidak diketahui'}`}>
+                                        {bap.nomor_surat} - {bap.client?.name ?? 'Klien tidak diketahui'}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

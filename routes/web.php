@@ -36,7 +36,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Work Reports (admin, technician, and staff)
     Route::middleware('role:admin|technician|staff')->group(function () {
         Route::resource('work-reports', WorkReportController::class);
+        Route::post('work-reports/autosave', [WorkReportController::class, 'autosave'])->name('work-reports.autosave');
         Route::post('work-reports/{id}/submit', [WorkReportController::class, 'submit'])->name('work-reports.submit');
+        Route::post('work-reports/{work_report}/photos', [WorkReportController::class, 'uploadPhoto'])->name('work-reports.photos.store');
+        Route::delete('work-reports/{work_report}/photos/{photo}', [WorkReportController::class, 'deletePhoto'])->name('work-reports.photos.destroy');
     });
 
     // BAP (admin only)

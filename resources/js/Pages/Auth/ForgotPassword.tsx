@@ -18,12 +18,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
     return (
         <GuestLayout>
-            <Head title="Forgot Password" />
+            <Head title="Lupa Password" />
 
-            <div className="mb-4 text-sm text-gray-600">
-                Forgot your password? No problem. Just let us know your email
-                address and we will email you a password reset link that will
-                allow you to choose a new one.
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold tracking-[-0.03em]">Atur ulang password</h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Masukkan email akun Anda. Kami akan mengirim tautan untuk membuat password baru.</p>
             </div>
 
             {status && (
@@ -46,8 +45,8 @@ export default function ForgotPassword({ status }: { status?: string }) {
                 <InputError message={errors.email} className="mt-2" />
 
                 <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Email Password Reset Link
+                    <PrimaryButton className="w-full" disabled={processing}>
+                        Kirim Tautan Reset
                     </PrimaryButton>
                 </div>
             </form>

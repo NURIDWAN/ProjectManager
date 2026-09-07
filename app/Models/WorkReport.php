@@ -18,6 +18,8 @@ class WorkReport extends Model
         'client_id',
         'category_id',
         'technician_id',
+        'transferred_from_id',
+        'transferred_at',
         'description',
         'area',
         'preset_data',
@@ -34,6 +36,7 @@ class WorkReport extends Model
             'after_photos' => 'array',
             'preset_data' => 'array',
             'submitted_at' => 'datetime',
+            'transferred_at' => 'datetime',
         ];
     }
 
@@ -50,6 +53,11 @@ class WorkReport extends Model
     public function technician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'technician_id');
+    }
+
+    public function transferredFrom(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'transferred_from_id');
     }
 
     public function photos(): HasMany

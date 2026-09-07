@@ -1,26 +1,13 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
-import {
-    Users,
-    FileText,
-    CreditCard,
-    AlertTriangle,
-    ArrowRight,
-    Clock,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, FileCheck, FileText, Receipt } from 'lucide-react';
 import { KpiCard } from '@/Components/KpiCard';
+import { PageHeader } from '@/Components/PageHeader';
 import { RevenueChart } from '@/Components/RevenueChart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface KpiData {
     total_active_clients: number;
@@ -39,237 +26,164 @@ interface DashboardProps {
     monthlyRevenue: MonthlyRevenueEntry[];
 }
 
+function getTrendPercent(current: number, previous: number): number {
+    if (previous === 0) {
+        return current > 0 ? 100 : 0;
+    }
+
+    return ((current - previous) / previous) * 100;
+}
+
+const shortcuts = [
+    { label: 'Laporan Kerja', description: 'Tinjau laporan dari teknisi', href: '/work-reports', icon: FileText },
+    { label: 'Berita Acara', description: 'Siapkan dan setujui BAP', href: '/baps', icon: FileCheck },
+    { label: 'Invoice', description: 'Kelola tagihan dan pembayaran', href: '/invoices', icon: Receipt },
+];
+
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
-        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     }).format(value);
 }
 
-function KpiCardSkeleton() {
+function DashboardSkeleton() {
     return (
-        <Card>
-            <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-8 w-32" />
-                        <Skeleton className="h-3 w-20" />
+        <div className="app-page">
+            <div className="grid overflow-hidden rounded-xl border bg-card sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="space-y-3 border-b p-4 last:border-b-0 sm:border-r xl:border-b-0">
+                        <Skeleton className="h-4 w-28" />
+                        <div className="flex items-center justify-between gap-3">
+                            <Skeleton className="h-8 w-24" />
+                            <Skeleton className="h-8 w-20 rounded-full" />
+                        </div>
+                        <Skeleton className="h-3 w-24" />
                     </div>
-                    <Skeleton className="size-10 rounded-lg" />
-                </div>
-            </CardContent>
-        </Card>
+                ))}
+            </div>
+            <Skeleton className="h-[300px] w-full rounded-xl" />
+        </div>
     );
 }
 
 export default function Dashboard({ kpiData, monthlyRevenue }: DashboardProps) {
     const isLoading = !kpiData;
-
-    if (isLoading) {
-        return (
-            <AuthenticatedLayout
-                header={
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Dashboard
-                    </h2>
-                }
-            >
-                <Head title="Dashboard" />
-                <div className="space-y-6">
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <KpiCardSkeleton />
-                        <KpiCardSkeleton />
-                        <KpiCardSkeleton />
-                        <KpiCardSkeleton />
-                    </div>
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-5 w-48" />
-                            <Skeleton className="h-4 w-64" />
-                        </CardHeader>
-                        <CardContent>
-                            <Skeleton className="h-[280px] w-full" />
-                        </CardContent>
-                    </Card>
-                </div>
-            </AuthenticatedLayout>
-        );
-    }
+    const kpis = kpiData ? [
+        {
+            label: 'Klien Aktif',
+            value: kpiData.total_active_clients,
+            description: 'Klien dengan status aktif',
+        },
+        {
+            label: 'Pekerjaan Bulan Ini',
+            value: kpiData.work_reports_this_month,
+            description: 'Laporan yang sudah disubmit',
+        },
+        {
+            label: 'Total Belum Dibayar',
+            value: formatRupiah(kpiData.total_unpaid_amount),
+            description: 'Akumulasi invoice unpaid',
+        },
+        {
+            label: 'Invoice Overdue',
+            value: kpiData.overdue_count,
+            description: kpiData.overdue_count > 0 ? 'Memerlukan perhatian' : 'Tidak ada yang terlambat',
+        },
+    ] : [];
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                            Dashboard
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Ringkasan performa dan aktivitas bisnis
-                        </p>
-                    </div>
-                    {kpiData.overdue_count > 0 && (
+                <PageHeader
+                    title="Dashboard"
+                    description="Ringkasan pekerjaan, piutang, dan pendapatan perusahaan."
+                    actions={kpiData?.overdue_count > 0 ? (
                         <Link href="/invoices?status=overdue">
-                            <Badge
-                                variant="destructive"
-                                className="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 transition-opacity hover:opacity-80"
-                            >
+                            <Badge variant="destructive" className="gap-1.5 px-3 py-1.5">
                                 <AlertTriangle className="size-3.5" />
-                                {kpiData.overdue_count} Invoice Overdue
+                                {kpiData.overdue_count} jatuh tempo
                             </Badge>
                         </Link>
-                    )}
-                </div>
+                    ) : undefined}
+                />
             }
         >
             <Head title="Dashboard" />
 
-            <div className="space-y-6">
-                {/* Overdue Alert Banner */}
-                {kpiData.overdue_count > 0 && (
-                    <Card className="border-destructive/50 bg-destructive/5">
-                        <CardContent className="flex items-center justify-between p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="flex size-9 items-center justify-center rounded-full bg-destructive/10">
-                                    <Clock className="size-4.5 text-destructive" />
+            {isLoading ? <DashboardSkeleton /> : (
+                <div className="app-page">
+                    {kpiData.overdue_count > 0 && (
+                        <section aria-label="Peringatan invoice" className="flex flex-col gap-4 rounded-xl border border-destructive/25 bg-destructive/8 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/12 text-destructive">
+                                    <AlertTriangle className="size-4.5" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-destructive">
-                                        {kpiData.overdue_count} invoice melewati jatuh tempo
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Total:{' '}
-                                        {formatRupiah(kpiData.total_unpaid_amount)} belum dibayar
+                                    <p className="text-sm font-semibold text-foreground">Invoice perlu ditindaklanjuti</p>
+                                    <p className="mt-0.5 text-sm text-muted-foreground">
+                                        {kpiData.overdue_count} invoice sudah melewati jatuh tempo. Total piutang saat ini {formatRupiah(kpiData.total_unpaid_amount)}.
                                     </p>
                                 </div>
                             </div>
                             <Link href="/invoices?status=overdue">
-                                <Button variant="destructive" size="sm">
-                                    Lihat Detail
-                                    <ArrowRight className="ml-1.5 size-3.5" />
+                                <Button variant="outline" size="sm" className="w-full bg-background sm:w-auto">
+                                    Lihat invoice <ArrowRight className="size-4" />
                                 </Button>
                             </Link>
-                        </CardContent>
-                    </Card>
-                )}
+                        </section>
+                    )}
 
-                {/* KPI Cards - 4 columns */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <KpiCard
-                        label="Total Klien Aktif"
-                        value={kpiData.total_active_clients}
-                        icon={<Users className="size-5" />}
-                        iconColor="blue"
-                        description="Klien dengan status aktif"
-                    />
-                    <KpiCard
-                        label="Pekerjaan Bulan Ini"
-                        value={kpiData.work_reports_this_month}
-                        icon={<FileText className="size-5" />}
-                        iconColor="emerald"
-                        description="Laporan kerja submitted"
-                    />
-                    <KpiCard
-                        label="Total Belum Dibayar"
-                        value={formatRupiah(kpiData.total_unpaid_amount)}
-                        icon={<CreditCard className="size-5" />}
-                        iconColor="amber"
-                        description={
-                            kpiData.overdue_count > 0
-                                ? `${kpiData.overdue_count} sudah jatuh tempo`
-                                : 'Semua dalam tenggat waktu'
-                        }
-                    />
-                    <KpiCard
-                        label="Invoice Overdue"
-                        value={kpiData.overdue_count}
-                        icon={<AlertTriangle className="size-5" />}
-                        iconColor={kpiData.overdue_count > 0 ? 'rose' : 'default'}
-                        description={
-                            kpiData.overdue_count > 0
-                                ? 'Memerlukan perhatian segera'
-                                : 'Tidak ada yang overdue'
-                        }
-                    />
+                    <section aria-label="Indikator kinerja" className="grid overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-[0_24px_50px_-35px_rgba(15,23,42,0.18)] sm:grid-cols-2 xl:grid-cols-4">
+                        {kpis.map((kpi, index) => {
+                            const borderClassName = [
+                                'border-b sm:border-r xl:border-b-0',
+                                'border-b xl:border-b-0 xl:border-r',
+                                'border-b sm:border-b-0 sm:border-r',
+                                '',
+                            ][index];
+
+                            return (
+                                <KpiCard
+                                    key={kpi.label}
+                                    className={borderClassName}
+                                    label={kpi.label}
+                                    value={kpi.value}
+                                    description={kpi.description}
+                                />
+                            );
+                        })}
+                    </section>
+
+                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+                        <RevenueChart data={monthlyRevenue} />
+
+                        <section className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-[0_20px_40px_-35px_rgba(15,23,42,0.12)]">
+                            <h2 className="text-base font-semibold tracking-[-0.01em]">Akses cepat</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">Buka pekerjaan yang paling sering digunakan.</p>
+                            <div className="mt-5 space-y-2">
+                                {shortcuts.map((shortcut) => (
+                                    <Link
+                                        key={shortcut.href}
+                                        href={shortcut.href}
+                                        className="group flex min-h-16 items-center gap-3 rounded-lg border border-transparent px-3 outline-none hover:border-border hover:bg-muted/55 focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                                            <shortcut.icon className="size-4.5" strokeWidth={1.8} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-foreground">{shortcut.label}</p>
+                                            <p className="truncate text-xs text-muted-foreground">{shortcut.description}</p>
+                                        </div>
+                                        <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                    </Link>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
                 </div>
-
-                {/* Revenue Chart */}
-                <RevenueChart data={monthlyRevenue} />
-
-                {/* Quick Actions */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Card className="transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium">
-                                Laporan Kerja
-                            </CardTitle>
-                            <CardDescription>
-                                Kelola laporan dari teknisi
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            <Link href="/work-reports">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full justify-between"
-                                >
-                                    Lihat Semua Laporan
-                                    <ArrowRight className="size-3.5" />
-                                </Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium">
-                                Berita Acara (BAP)
-                            </CardTitle>
-                            <CardDescription>
-                                Buat dan kelola BAP dari laporan
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            <Link href="/baps">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full justify-between"
-                                >
-                                    Kelola BAP
-                                    <ArrowRight className="size-3.5" />
-                                </Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium">
-                                Invoice
-                            </CardTitle>
-                            <CardDescription>
-                                Tagihan dan pembayaran klien
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            <Link href="/invoices">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full justify-between"
-                                >
-                                    Kelola Invoice
-                                    <ArrowRight className="size-3.5" />
-                                </Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+            )}
         </AuthenticatedLayout>
     );
 }

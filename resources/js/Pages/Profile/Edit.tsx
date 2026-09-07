@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
+import { PageHeader } from '@/Components/PageHeader';
 
 export default function Edit({
     mustVerifyEmail,
@@ -12,16 +13,13 @@ export default function Edit({
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Profile
-                </h2>
+                <PageHeader title="Profil" description="Kelola identitas akun, password, dan keamanan akses Anda." />
             }
         >
-            <Head title="Profile" />
+            <Head title="Profil" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+            <div className="mx-auto max-w-3xl space-y-6">
+                    <div className="rounded-xl border bg-card p-5 shadow-xs sm:p-8">
                         <UpdateProfileInformationForm
                             mustVerifyEmail={mustVerifyEmail}
                             status={status}
@@ -29,14 +27,13 @@ export default function Edit({
                         />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="rounded-xl border bg-card p-5 shadow-xs sm:p-8">
                         <UpdatePasswordForm className="max-w-xl" />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="rounded-xl border border-destructive/20 bg-card p-5 shadow-xs sm:p-8">
                         <DeleteUserForm className="max-w-xl" />
                     </div>
-                </div>
             </div>
         </AuthenticatedLayout>
     );

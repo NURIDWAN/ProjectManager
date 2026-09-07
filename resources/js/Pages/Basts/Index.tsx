@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { PageHeader } from '@/Components/PageHeader';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Button } from '@/components/ui/button';
 import {
@@ -154,17 +155,14 @@ export default function Index({ basts, clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Berita Acara Serah Terima (BAST)
-                    </h2>
+                <PageHeader title="Berita Acara Serah Terima" description="Kelola dokumen serah terima pekerjaan yang sudah diselesaikan." actions={
                     <Link href="/basts/create">
                         <Button>
-                            <Plus className="mr-2 size-4" />
+                            <Plus className="size-4" />
                             Buat BAST
                         </Button>
                     </Link>
-                </div>
+                } />
             }
         >
             <Head title="BAST" />
@@ -205,7 +203,7 @@ export default function Index({ basts, clients, filters }: Props) {
                     {basts.last_page > 1 && (
                         <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Menampilkan {basts.from}–{basts.to} dari{' '}
+                                Menampilkan {basts.from}-{basts.to} dari{' '}
                                 {basts.total} data
                             </p>
 

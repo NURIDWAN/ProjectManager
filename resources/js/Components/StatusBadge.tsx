@@ -11,27 +11,27 @@ interface StatusBadgeProps {
 const statusConfig: Record<StatusType, { label: string; className: string }> = {
     draft: {
         label: 'Draft',
-        className: 'bg-gray-100 text-gray-700 border-gray-200',
+        className: 'border-border bg-muted text-muted-foreground',
     },
     submitted: {
         label: 'Submitted',
-        className: 'bg-blue-100 text-blue-700 border-blue-200',
+        className: 'border-primary/20 bg-primary/10 text-primary',
     },
     approved: {
         label: 'Approved',
-        className: 'bg-green-100 text-green-700 border-green-200',
+        className: 'border-emerald-600/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     },
     paid: {
         label: 'Paid',
-        className: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        className: 'border-emerald-600/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     },
     overdue: {
         label: 'Overdue',
-        className: 'bg-red-100 text-red-700 border-red-200',
+        className: 'border-destructive/20 bg-destructive/10 text-destructive',
     },
     unpaid: {
         label: 'Unpaid',
-        className: 'bg-amber-100 text-amber-700 border-amber-200',
+        className: 'border-amber-600/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     },
 };
 
