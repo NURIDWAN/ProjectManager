@@ -269,7 +269,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
 
     const hasPresetData = (): boolean => {
         return presetData.some((entry) =>
-            entry.lokasi.trim() !== '' ||
+            (entry.lokasi ?? '').trim() !== '' ||
             entry.tipe_ac !== '' ||
             entry.merek !== '' ||
             entry.kapasitas !== ''
