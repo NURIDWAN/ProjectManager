@@ -240,7 +240,7 @@ export default function Index({ baps, clients, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={baps.data} />
+                    <DataTable columns={columns} data={baps.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {baps.last_page > 1 && (

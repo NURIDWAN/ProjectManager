@@ -324,7 +324,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={workReports.data} />
+                    <DataTable columns={columns} data={workReports.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {workReports.last_page > 1 && (
