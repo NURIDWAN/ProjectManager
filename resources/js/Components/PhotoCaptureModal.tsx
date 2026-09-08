@@ -232,6 +232,21 @@ export function PhotoCaptureModal({
         }
     }, [selectedDevice, stopCamera]);
 
+    // Switch cameras live: when the user picks a different camera while the
+    // stream is running, restart the stream with the new device.
+    const didMountRef = useRef(false);
+    useEffect(() => {
+        // Skip the first run (initial selection) and idle states.
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+        if (capturing && selectedDevice) {
+            void startCamera();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDevice]);
+
     // Stop camera
     const handleStopCamera = useCallback(() => {
         stopCamera();
@@ -280,7 +295,12 @@ export function PhotoCaptureModal({
 
                 const baseCaption = snapshot.caption || '';
 
-                const uploaded = await uploadFile(file, baseCaption);
+                // AC unit photos need the ac_unit_{idx}: marker so the report
+                // page can group them per unit; keep the user caption intact.
+                const finalCaption =
+                    unitIndex !== null ? `ac_unit_${unitIndex}:${baseCaption}` : baseCaption;
+
+                const uploaded = await uploadFile(file, finalCaption);
 
                 // Remove from snapshots and add to existing photos.
                 // Only call onPhotoAdded — the parent owns the list state and
@@ -295,7 +315,7 @@ export function PhotoCaptureModal({
                 setUploadingId(null);
             }
         },
-        [uploadFile, onPhotoAdded, setCapturedSnapshots, maxSizeMB]
+        [uploadFile, onPhotoAdded, setCapturedSnapshots, maxSizeMB, unitIndex]
     );
 
     // Upload all captured photos
@@ -316,17 +336,22 @@ export function PhotoCaptureModal({
 
             for (const file of validFiles) {
                 try {
-                    const finalCaption = unitIndex !== null ? `ac_unit_${unitIndex}:${file.name}` : file.name;
-                    const uploaded = await uploadFile(file, file.name);
+                    // Custom caption from the shared input, falling back to the
+                    // file name. For AC unit photos the caption must carry the
+                    // ac_unit_{idx}: marker so the report page can group it.
+                    const userCaption = currentCaption.trim() || file.name;
+                    const finalCaption =
+                        unitIndex !== null ? `ac_unit_${unitIndex}:${userCaption}` : userCaption;
+                    const uploaded = await uploadFile(file, finalCaption);
                     // Parent owns the list state — append there only (avoids
                     // stale-closure overwrites of the existing photo list).
-                    onPhotoAdded({ ...uploaded, caption: file.name });
+                    onPhotoAdded({ ...uploaded, caption: userCaption });
                 } catch {
                     toast.error(`Gagal mengunggah ${file.name}`);
                 }
             }
         },
-        [uploadFile, unitIndex, onPhotoAdded, maxSizeMB]
+        [uploadFile, unitIndex, onPhotoAdded, maxSizeMB, currentCaption]
     );
 
     // Delete photo
@@ -398,6 +423,17 @@ export function PhotoCaptureModal({
                         <Camera className="mr-2 size-4" />
                         Ambil Foto
                     </Button>
+                </div>
+
+                {/* Caption — shared by both tabs (camera captures and file uploads) */}
+                <div className="space-y-2">
+                    <Label htmlFor="photo-capture-caption">Keterangan (opsional)</Label>
+                    <Input
+                        id="photo-capture-caption"
+                        value={currentCaption}
+                        onChange={(e) => setCurrentCaption(e.target.value)}
+                        placeholder="Contoh: Kondisi sebelum perbaikan"
+                    />
                 </div>
 
                 {/* Upload Tab */}
@@ -525,7 +561,7 @@ export function PhotoCaptureModal({
                                         variant="outline"
                                         size="sm"
                                         onClick={() => void startCamera()}
-                                        className="border-white text-white hover:bg-white/20"
+                                        className="border-white bg-black/50 text-white hover:bg-white/20"
                                     >
                                         Coba Lagi
                                     </Button>
@@ -539,7 +575,7 @@ export function PhotoCaptureModal({
                                         variant="outline"
                                         size="sm"
                                         onClick={() => void startCamera()}
-                                        className="border-white text-white hover:bg-white/20"
+                                        className="border-white bg-black/50 text-white hover:bg-white/20"
                                     >
                                         Mulai Kamera
                                     </Button>
@@ -547,16 +583,7 @@ export function PhotoCaptureModal({
                             )}
                         </div>
 
-                        {/* Caption — always visible while in camera tab */}
-                        <div className="space-y-2">
-                            <Label htmlFor="photo-capture-caption">Keterangan (opsional)</Label>
-                            <Input
-                                id="photo-capture-caption"
-                                value={currentCaption}
-                                onChange={(e) => setCurrentCaption(e.target.value)}
-                                placeholder="Contoh: Kondisi sebelum perbaikan"
-                            />
-                        </div>
+                        {/* Caption — shared input now lives above both tabs */}
 
                         {/* Captured Snapshots */}
                         {capturedSnapshots.length > 0 && (

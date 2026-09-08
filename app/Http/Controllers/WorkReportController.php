@@ -520,8 +520,10 @@ class WorkReportController extends Controller
                     // fetch sends JSON as an object, decode string payloads too
                     $entries = is_string($rawPresetData) ? json_decode($rawPresetData, true) ?? [] : $rawPresetData;
                     if (! empty($entries)) {
-                        // Throws ValidationException on failure
-                        $presetData = $this->acMeasurementValidator->validate($entries);
+                        // Lenient validation: autosave must succeed even while
+                        // the AC measurement form is still half-filled. Strict
+                        // validation still runs at submit time.
+                        $presetData = $this->acMeasurementValidator->validatePartial($entries);
                     }
                 }
             }

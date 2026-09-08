@@ -266,7 +266,7 @@ export default function Index({ invoices, clients, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={invoices.data} />
+                    <DataTable columns={columns} data={invoices.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {invoices.last_page > 1 && (

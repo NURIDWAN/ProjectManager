@@ -216,7 +216,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={clients.data} />
+                    <DataTable columns={columns} data={clients.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {clients.last_page > 1 && (

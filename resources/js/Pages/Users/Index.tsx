@@ -217,7 +217,7 @@ export default function UsersIndex({ users, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={users.data} />
+                    <DataTable columns={columns} data={users.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {users.last_page > 1 && (

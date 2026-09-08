@@ -133,7 +133,75 @@ class WorkReportAutosaveTest extends TestCase
 
     // === AUTOSAVE: PRESET DATA ===
 
-    public function test_autosave_validates_ac_preset_data(): void
+    public function test_autosave_saves_partial_ac_data(): void
+    {
+        $category = \App\Models\JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+
+        // Half-filled AC entry: user is still typing. Autosave must succeed.
+        $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
+            'category_id' => $category->id,
+            'preset_data' => json_encode([
+                ['lokasi' => 'Ruang Meeting', 'tipe_ac' => 'Splitwall'],
+            ]),
+        ]);
+
+        $response->assertStatus(200);
+        $report = WorkReport::find($response->json('id'));
+        $this->assertNotNull($report);
+
+        $saved = is_string($report->preset_data)
+            ? json_decode($report->preset_data, true)
+            : $report->preset_data;
+        $this->assertCount(1, $saved);
+        $this->assertEquals('Ruang Meeting', $saved[0]['lokasi']);
+    }
+
+    public function test_autosave_saves_ac_data_with_empty_optional_fields(): void
+    {
+        $category = \App\Models\JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+
+        // Empty strings (what the form sends for untouched inputs) must not fail.
+        $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
+            'category_id' => $category->id,
+            'preset_data' => json_encode([
+                [
+                    'lokasi' => 'Lobby',
+                    'tipe_ac' => '',
+                    'merek' => '',
+                    'kapasitas' => '',
+                    'suhu_before' => '',
+                    'ampere_input_count' => '',
+                ],
+            ]),
+        ]);
+
+        $response->assertStatus(200);
+        $report = WorkReport::find($response->json('id'));
+        $this->assertNotNull($report);
+    }
+
+    public function test_autosave_still_rejects_malformed_ac_data(): void
+    {
+        $category = \App\Models\JobCategory::factory()->create([
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+
+        // Partial is fine, but a provided value must still be well-formed.
+        $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
+            'category_id' => $category->id,
+            'preset_data' => json_encode([
+                ['lokasi' => 'Ruang Server', 'kapasitas' => 'bukan-angka'],
+            ]),
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_autosave_still_rejects_unknown_ac_type(): void
     {
         $category = \App\Models\JobCategory::factory()->create([
             'preset_identifier' => 'ac_maintenance',
@@ -142,17 +210,11 @@ class WorkReportAutosaveTest extends TestCase
         $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
             'category_id' => $category->id,
             'preset_data' => json_encode([
-                ['lokasi' => 'Ruang Meeting', 'tipe_ac' => 'Splitwall', 'merek' => 'Gree'],
+                ['lokasi' => 'Gudang', 'tipe_ac' => 'Window'],
             ]),
         ]);
 
-        // Validator should reject incomplete AC entries (missing measurements)
-        $this->assertContains($response->status(), [200, 422]);
-
-        if ($response->status() === 200) {
-            $report = WorkReport::find($response->json('id'));
-            $this->assertNotNull($report);
-        }
+        $response->assertStatus(422);
     }
 
     // === PHOTO ENDPOINTS ===

@@ -197,7 +197,7 @@ export default function Index({ basts, clients, filters }: Props) {
                     </div>
 
                     {/* Table */}
-                    <DataTable columns={columns} data={basts.data} />
+                    <DataTable columns={columns} data={basts.data} serverSide />
 
                     {/* Server-side Pagination */}
                     {basts.last_page > 1 && (

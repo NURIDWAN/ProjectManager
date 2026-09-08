@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
+/** Milliseconds to wait before re-showing an identical autosave error toast. */
+const ERROR_TOAST_COOLDOWN_MS = 30_000;
+
 interface AutosaveOptions {
     /** Milliseconds of inactivity before the save fires. */
     debounceMs?: number;
@@ -49,6 +52,9 @@ export function useWorkReportAutosave({
     const inFlightRef = useRef(false);
     const savedPayloadRef = useRef<string>('');
     const mountedRef = useRef(true);
+    // Dedupe error toasts: remember the last (message, time) so repeated
+    // failures do not spam the user with identical toasts every debounce.
+    const lastErrorRef = useRef<{ message: string; at: number } | null>(null);
 
     const buildPayloadRef = useRef(buildPayload);
     buildPayloadRef.current = buildPayload;
@@ -56,6 +62,18 @@ export function useWorkReportAutosave({
     onDraftCreatedRef.current = onDraftCreated;
     const onErrorRef = useRef(onError);
     onErrorRef.current = onError;
+
+    const reportError = useCallback((message: string) => {
+        const now = Date.now();
+        const last = lastErrorRef.current;
+        if (last && last.message === message && now - last.at < ERROR_TOAST_COOLDOWN_MS) {
+            // Same message within the cooldown window: skip the toast,
+            // the SaveStatusIndicator already shows a persistent state.
+            return;
+        }
+        lastErrorRef.current = { message, at: now };
+        onErrorRef.current?.(message);
+    }, []);
 
     const performSave = useCallback(async (): Promise<boolean> => {
         // Another save is running: remember that changes may exist, they will
@@ -104,11 +122,9 @@ export function useWorkReportAutosave({
                     (data as { message?: string } | null)?.message ??
                     'Gagal menyimpan otomatis.';
 
-                if (response.status === 422) {
-                    onErrorRef.current?.('Data pengukuran AC belum lengkap, perubahan belum tersimpan.');
-                } else {
-                    onErrorRef.current?.(message);
-                }
+                // Deduped: identical messages within the cooldown window do
+                // not re-toast, the status indicator already shows the error.
+                reportError(message);
 
                 if (mountedRef.current) {
                     setState('error');
@@ -127,6 +143,8 @@ export function useWorkReportAutosave({
 
             savedPayloadRef.current = JSON.stringify({ ...payload, id: data.id });
             setLastSavedAt(data.saved_at);
+            // Save succeeded: allow the next failure to toast immediately.
+            lastErrorRef.current = null;
 
             if (mountedRef.current) {
                 setState('saved');
@@ -134,7 +152,7 @@ export function useWorkReportAutosave({
 
             return true;
         } catch {
-            onErrorRef.current?.('Gagal menyimpan otomatis. Periksa koneksi Anda.');
+            reportError('Gagal menyimpan otomatis. Periksa koneksi Anda.');
 
             if (mountedRef.current) {
                 setState('error');

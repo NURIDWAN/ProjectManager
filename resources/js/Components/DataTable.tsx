@@ -66,6 +66,12 @@ interface DataTableProps<TData, TValue> {
     enableRowSelection?: boolean;
     enableColumnVisibility?: boolean;
     enableGlobalFilter?: boolean;
+    /**
+     * When true, the DataTable's internal pagination footer is hidden because
+     * pagination is handled server-side by the page (e.g. via Inertia links).
+     * Prevents duplicate page navigation UIs on the same page.
+     */
+    serverSide?: boolean;
     onRowSelectionChange?: (selectedRows: TData[]) => void;
     toolbar?: React.ReactNode;
 }
@@ -81,6 +87,7 @@ export function DataTable<TData, TValue>({
     enableRowSelection = false,
     enableColumnVisibility = true,
     enableGlobalFilter = false,
+    serverSide = false,
     onRowSelectionChange,
     toolbar,
 }: DataTableProps<TData, TValue>) {
@@ -271,100 +278,102 @@ export function DataTable<TData, TValue>({
                 </Table>
             </div>
 
-            {/* Footer: Pagination + Page Size */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                {/* Left: Row count & page size */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                        {totalRows > 0 ? (
-                            <>
-                                {table.getState().pagination.pageIndex *
-                                    table.getState().pagination.pageSize +
-                                    1}
-                                -
-                                {Math.min(
-                                    (table.getState().pagination.pageIndex + 1) *
-                                        table.getState().pagination.pageSize,
-                                    totalRows
-                                )}{' '}
-                                dari {totalRows}
-                            </>
-                        ) : (
-                            '0 data'
-                        )}
-                    </p>
+            {/* Footer: Pagination + Page Size (hidden when pagination is server-side) */}
+            {!serverSide && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    {/* Left: Row count & page size */}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                            {totalRows > 0 ? (
+                                <>
+                                    {table.getState().pagination.pageIndex *
+                                        table.getState().pagination.pageSize +
+                                        1}
+                                    -
+                                    {Math.min(
+                                        (table.getState().pagination.pageIndex + 1) *
+                                            table.getState().pagination.pageSize,
+                                        totalRows
+                                    )}{' '}
+                                    dari {totalRows}
+                                </>
+                            ) : (
+                                '0 data'
+                            )}
+                        </p>
 
-                    {/* Page Size Selector */}
+                        {/* Page Size Selector */}
+                        <div className="flex items-center gap-1 sm:gap-2">
+                            <span className="text-xs sm:text-sm text-muted-foreground">Tampilkan</span>
+                            <Select
+                                value={String(table.getState().pagination.pageSize)}
+                                onValueChange={(value) =>
+                                    table.setPageSize(Number(value ?? '10'))
+                                }
+                                items={Object.fromEntries(pageSizeOptions.map(size => [String(size), String(size)]))}
+                            >
+                                <SelectTrigger className="h-7 w-[60px] sm:h-8 sm:w-[70px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {pageSizeOptions.map((size) => (
+                                        <SelectItem key={size} value={String(size)}>
+                                            {size}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Right: Page navigation */}
                     <div className="flex items-center gap-1 sm:gap-2">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Tampilkan</span>
-                        <Select
-                            value={String(table.getState().pagination.pageSize)}
-                            onValueChange={(value) =>
-                                table.setPageSize(Number(value ?? '10'))
-                            }
-                            items={Object.fromEntries(pageSizeOptions.map(size => [String(size), String(size)]))}
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                            Hal {table.getState().pagination.pageIndex + 1}/{table.getPageCount() || 1}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7 sm:size-8"
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={!table.getCanPreviousPage()}
+                            aria-label="Halaman pertama"
                         >
-                            <SelectTrigger className="h-7 w-[60px] sm:h-8 sm:w-[70px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {pageSizeOptions.map((size) => (
-                                    <SelectItem key={size} value={String(size)}>
-                                        {size}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <ChevronsLeft className="size-3.5 sm:size-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7 sm:size-8"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                            aria-label="Halaman sebelumnya"
+                        >
+                            <ChevronLeft className="size-3.5 sm:size-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7 sm:size-8"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                            aria-label="Halaman berikutnya"
+                        >
+                            <ChevronRight className="size-3.5 sm:size-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="size-7 sm:size-8"
+                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                            disabled={!table.getCanNextPage()}
+                            aria-label="Halaman terakhir"
+                        >
+                            <ChevronsRight className="size-3.5 sm:size-4" />
+                        </Button>
                     </div>
                 </div>
-
-                {/* Right: Page navigation */}
-                <div className="flex items-center gap-1 sm:gap-2">
-                    <span className="text-xs sm:text-sm text-muted-foreground">
-                        Hal {table.getState().pagination.pageIndex + 1}/{table.getPageCount() || 1}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-7 sm:size-8"
-                        onClick={() => table.setPageIndex(0)}
-                        disabled={!table.getCanPreviousPage()}
-                        aria-label="Halaman pertama"
-                    >
-                        <ChevronsLeft className="size-3.5 sm:size-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-7 sm:size-8"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                        aria-label="Halaman sebelumnya"
-                    >
-                        <ChevronLeft className="size-3.5 sm:size-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-7 sm:size-8"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                        aria-label="Halaman berikutnya"
-                    >
-                        <ChevronRight className="size-3.5 sm:size-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-7 sm:size-8"
-                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                        disabled={!table.getCanNextPage()}
-                        aria-label="Halaman terakhir"
-                    >
-                        <ChevronsRight className="size-3.5 sm:size-4" />
-                    </Button>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
