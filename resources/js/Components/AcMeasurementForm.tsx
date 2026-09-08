@@ -88,13 +88,23 @@ export const normalizeAcMeasurementEntry = (raw: Record<string, unknown>): AcMea
     const requestedCount = Number(raw.ampere_input_count);
     const ampereInputCount = ([1, 2, 3].includes(requestedCount) ? requestedCount : inferredCount) as 1 | 2 | 3;
 
-    return {
+    const base: AcMeasurementEntry = {
         ...EMPTY_ENTRY,
         ...raw,
         suhu_before: firstMeasurement(raw.suhu_before, raw.suhu_before_r, raw.suhu_before_s, raw.suhu_before_t),
         suhu_after: firstMeasurement(raw.suhu_after, raw.suhu_after_r, raw.suhu_after_s, raw.suhu_after_t),
         ampere_input_count: ampereInputCount,
-    } as AcMeasurementEntry;
+    };
+
+    // Partial autosave persists empty fields as null (validatePartial converts
+    // '' → null server-side). Coerce every null back to the EMPTY_ENTRY default
+    // so string fields stay strings and numeric fields stay ''.
+    return Object.fromEntries(
+        Object.entries(base).map(([key, val]) => [
+            key,
+            val === null || val === undefined ? EMPTY_ENTRY[key as keyof AcMeasurementEntry] : val,
+        ])
+    ) as unknown as AcMeasurementEntry;
 };
 
 const TIPE_AC_OPTIONS = ['Splitduct', 'Cassette', 'Splitwall'] as const;
@@ -652,14 +662,14 @@ function MerekSelect({
     className: string;
     inputClassName: string;
 }) {
-    const isCustom = value !== '' && !MEREK_OPTIONS.includes(value as typeof MEREK_OPTIONS[number]);
+    const isCustom = value !== '' && value !== null && value !== undefined && !MEREK_OPTIONS.includes(value as typeof MEREK_OPTIONS[number]);
 
     if (isCustom) {
         return (
             <div className="flex gap-2">
                 <input
                     type="text"
-                    value={value.trim() === '' ? '' : value}
+                    value={value?.trim() === '' ? '' : value}
                     onChange={(e) => onChange(e.target.value || ' ')}
                     disabled={disabled}
                     className={inputClassName}
