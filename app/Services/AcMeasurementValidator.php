@@ -32,7 +32,39 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
 
         $validator = Validator::make(
             ['entries' => $entries],
-            $this->buildRules($entries),
+            $this->buildRules($entries, partial: false),
+            $this->buildMessages()
+        );
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated()['entries'];
+    }
+
+    /**
+     * Lenient validation used by autosave: identification fields may be
+     * empty while the user is still typing, but provided values must
+     * still be well-formed. Entry count bounds are not enforced here.
+     */
+    public function validatePartial(array $entries): array
+    {
+        $entries = array_map(fn ($entry) => $this->normalizeEntry($entry), $entries);
+
+        // Manual validators do not run ConvertEmptyStringsToNull middleware:
+        // an empty string would fail numeric/in rules even when nullable.
+        $entries = array_map(function ($entry) {
+            if (! is_array($entry)) {
+                return $entry;
+            }
+
+            return array_map(fn ($value) => $value === '' ? null : $value, $entry);
+        }, $entries);
+
+        $validator = Validator::make(
+            ['entries' => $entries],
+            $this->buildRules($entries, partial: true),
             $this->buildMessages()
         );
 
@@ -115,21 +147,34 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
 
     /**
      * Build validation rules for all entries.
+     *
+     * @param  bool  $partial  When true (autosave), identification fields become
+     *                        nullable so a half-filled form can still be saved.
      */
-    private function buildRules(array $entries): array
+    private function buildRules(array $entries, bool $partial = false): array
     {
         $rules = [
-            'entries' => ['required', 'array', 'min:' . self::MIN_ENTRIES, 'max:' . self::MAX_ENTRIES],
+            'entries' => $partial
+                ? ['present', 'array', 'max:' . self::MAX_ENTRIES]
+                : ['required', 'array', 'min:' . self::MIN_ENTRIES, 'max:' . self::MAX_ENTRIES],
         ];
 
         foreach ($entries as $index => $entry) {
             $prefix = "entries.{$index}";
 
             // Unit identification fields
-            $rules["{$prefix}.lokasi"] = ['required', 'string', 'max:255'];
-            $rules["{$prefix}.tipe_ac"] = ['required', 'string', 'in:Splitduct,Cassette,Splitwall'];
-            $rules["{$prefix}.merek"] = ['required', 'string', 'max:100'];
-            $rules["{$prefix}.kapasitas"] = ['required', 'numeric', 'between:0.5,30'];
+            $rules["{$prefix}.lokasi"] = $partial
+                ? ['nullable', 'string', 'max:255']
+                : ['required', 'string', 'max:255'];
+            $rules["{$prefix}.tipe_ac"] = $partial
+                ? ['nullable', 'string', 'in:Splitduct,Cassette,Splitwall']
+                : ['required', 'string', 'in:Splitduct,Cassette,Splitwall'];
+            $rules["{$prefix}.merek"] = $partial
+                ? ['nullable', 'string', 'max:100']
+                : ['required', 'string', 'max:100'];
+            $rules["{$prefix}.kapasitas"] = $partial
+                ? ['nullable', 'numeric', 'between:0.5,30']
+                : ['required', 'numeric', 'between:0.5,30'];
 
             // Suhu fields (one value each for before and after)
             foreach (['before', 'after'] as $timing) {
@@ -137,7 +182,9 @@ class AcMeasurementValidator implements AcMeasurementValidatorInterface
             }
 
             // Ampere fields (before/after × selected R/S/T inputs)
-            $rules["{$prefix}.ampere_input_count"] = ['required', 'integer', 'in:1,2,3'];
+            $rules["{$prefix}.ampere_input_count"] = $partial
+                ? ['nullable', 'integer', 'in:1,2,3']
+                : ['required', 'integer', 'in:1,2,3'];
             foreach (['before', 'after'] as $timing) {
                 foreach (['r', 's', 't'] as $phase) {
                     $rules["{$prefix}.ampere_{$timing}_{$phase}"] = ['nullable', 'numeric', 'between:0,200'];
