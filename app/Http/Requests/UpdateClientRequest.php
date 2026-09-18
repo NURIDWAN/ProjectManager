@@ -24,7 +24,7 @@ class UpdateClientRequest extends FormRequest
             'address' => ['required', 'string'],
             'npwp' => ['nullable', 'string', 'max:50'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'remove_logo' => ['nullable', 'boolean'],
             'pic_name' => ['nullable', 'string', 'max:255'],
             'pic_phone' => ['nullable', 'string', 'max:20'],

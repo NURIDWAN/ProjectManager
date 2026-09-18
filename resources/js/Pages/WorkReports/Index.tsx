@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { Plus, Eye, Pencil, Trash2, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ContributorBadges, Contributor } from '@/Components/ContributorBadges';
 
 interface WorkReport {
     id: number;
@@ -33,6 +34,7 @@ interface WorkReport {
     client?: { id: number; name: string } | null;
     category?: { id: number; name: string } | null;
     technician?: { id: number; name: string } | null;
+    contributors?: Contributor[];
 }
 
 interface PaginatedData {
@@ -64,6 +66,8 @@ export default function Index({ workReports, clients, filters }: Props) {
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [reportToDelete, setReportToDelete] = useState<WorkReport | null>(null);
+    const [submitModalOpen, setSubmitModalOpen] = useState(false);
+    const [reportToSubmit, setReportToSubmit] = useState<WorkReport | null>(null);
 
     const { flash, auth } = usePage().props as any;
 
@@ -138,10 +142,19 @@ export default function Index({ workReports, clients, filters }: Props) {
         });
     };
 
-    const handleSubmit = (report: WorkReport) => {
-        router.post(`/work-reports/${report.id}/submit`, {}, {
+    const handleSubmitRequest = (report: WorkReport) => {
+        setReportToSubmit(report);
+        setSubmitModalOpen(true);
+    };
+
+    const confirmSubmit = () => {
+        if (!reportToSubmit) return;
+
+        router.post(`/work-reports/${reportToSubmit.id}/submit`, {}, {
             onSuccess: () => {
                 toast.success('Laporan kerja berhasil disubmit.');
+                setSubmitModalOpen(false);
+                setReportToSubmit(null);
             },
             onError: (errors) => {
                 const errorMsg = Object.values(errors).flat().join(', ');
@@ -178,9 +191,14 @@ export default function Index({ workReports, clients, filters }: Props) {
         },
         {
             id: 'technician_name',
-            header: 'Teknisi',
+            header: 'User Collaborator',
             accessorFn: (row) => row.technician?.name ?? '-',
-            cell: ({ row }) => row.original.technician?.name ?? "-",
+            cell: ({ row }) => (
+                <ContributorBadges
+                    contributors={row.original.contributors}
+                    fallback={row.original.technician}
+                />
+            ),
             meta: { responsiveHidden: 'tablet' },
         },
         {
@@ -226,7 +244,7 @@ export default function Index({ workReports, clients, filters }: Props) {
                                     variant="ghost"
                                     size="icon-sm"
                                     title="Submit"
-                                    onClick={() => handleSubmit(report)}
+                                    onClick={() => handleSubmitRequest(report)}
                                 >
                                     <Send className="size-4 text-blue-600" />
                                 </Button>
@@ -396,6 +414,22 @@ export default function Index({ workReports, clients, filters }: Props) {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Submit Confirmation Modal */}
+            <ConfirmModal
+                open={submitModalOpen}
+                onOpenChange={setSubmitModalOpen}
+                title="Submit Laporan Kerja"
+                description="Apakah Anda yakin ingin submit laporan kerja ini? Setelah disubmit, laporan tidak dapat diedit lagi oleh operator."
+                confirmLabel="Ya, Submit"
+                cancelLabel="Batal"
+                variant="default"
+                onConfirm={confirmSubmit}
+                onCancel={() => {
+                    setReportToSubmit(null);
+                    setSubmitModalOpen(false);
+                }}
+            />
 
             {/* Delete Confirmation Modal */}
             <ConfirmModal

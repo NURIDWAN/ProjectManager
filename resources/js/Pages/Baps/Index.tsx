@@ -13,8 +13,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { CheckCircle, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/Components/DeleteConfirmationDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -54,6 +66,9 @@ export default function Index({ baps, clients, filters }: Props) {
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [clientFilter, setClientFilter] = useState(filters.client_id || '');
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; label: string } | null>(null);
+    const [approveTarget, setApproveTarget] = useState<{ id: number; label: string } | null>(null);
+    const [signedBy, setSignedBy] = useState('');
+    const [signedByError, setSignedByError] = useState('');
     const [deleting, setDeleting] = useState(false);
 
     const { flash } = usePage().props as any;
@@ -64,6 +79,27 @@ export default function Index({ baps, clients, filters }: Props) {
     if (flash?.error) {
         toast.error(flash.error);
     }
+
+    const handleApprove = () => {
+        if (!approveTarget) return;
+        if (!signedBy.trim()) {
+            setSignedByError('Nama pihak yang menyetujui wajib diisi.');
+            return;
+        }
+
+        setSignedByError('');
+        router.post(`/baps/${approveTarget.id}/approve`, { signed_by: signedBy.trim() }, {
+            onSuccess: () => {
+                toast.success('BAP berhasil di-approve.');
+                setApproveTarget(null);
+                setSignedBy('');
+            },
+            onError: (errors) => {
+                const message = Object.values(errors).flat().join(', ');
+                toast.error(message || 'Gagal approve BAP.');
+            },
+        });
+    };
 
     const handleDelete = () => {
         if (!deleteTarget) return;
@@ -166,6 +202,20 @@ export default function Index({ baps, clients, filters }: Props) {
                                 <Pencil className="size-4" />
                             </Button>
                         </Link>
+                        {item.status === 'draft' && (
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                title="Approved"
+                                onClick={() => {
+                                    setApproveTarget({ id: item.id, label: item.nomor_surat });
+                                    setSignedBy('');
+                                    setSignedByError('');
+                                }}
+                            >
+                                <CheckCircle className="size-4 text-green-600" />
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             size="icon-sm"
@@ -312,6 +362,65 @@ export default function Index({ baps, clients, filters }: Props) {
                     )}
                 </CardContent>
             </Card>
+
+            <AlertDialog
+                open={!!approveTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setApproveTarget(null);
+                        setSignedBy('');
+                        setSignedByError('');
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Approve BAP?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Setelah disetujui, status BAP akan berubah menjadi Approved.
+                            Masukkan nama pihak yang menyetujui untuk melanjutkan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="bap-signed-by">
+                            Nama Penyetuju <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="bap-signed-by"
+                            value={signedBy}
+                            onChange={(event) => {
+                                setSignedBy(event.target.value);
+                                if (signedByError) setSignedByError('');
+                            }}
+                            placeholder="Masukkan nama pihak yang menyetujui"
+                            aria-invalid={!!signedByError}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    handleApprove();
+                                }
+                            }}
+                        />
+                        {signedByError && (
+                            <p className="text-sm text-destructive">{signedByError}</p>
+                        )}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            onClick={() => {
+                                setApproveTarget(null);
+                                setSignedBy('');
+                                setSignedByError('');
+                            }}
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={handleApprove}>
+                            Ya, Approved
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <DeleteConfirmationDialog
                 open={!!deleteTarget}

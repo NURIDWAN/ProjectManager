@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @method static \Illuminate\Database\Eloquent\Builder<static> active()
+ */
 class Service extends Model
 {
     use HasFactory;
@@ -35,7 +39,10 @@ class Service extends Model
         return $this->hasMany(InvoiceItem::class);
     }
 
-    public function scopeActive($query)
+    /**
+     * @param Builder<Service> $query
+     */
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }

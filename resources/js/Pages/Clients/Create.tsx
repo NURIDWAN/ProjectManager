@@ -146,13 +146,13 @@ export default function ClientsCreate() {
                                     <input
                                         ref={logoInputRef}
                                         type="file"
-                                        accept="image/jpeg,image/jpg,image/png"
+                                        accept="image/jpeg,image/jpg,image/png,image/webp"
                                         onChange={handleLogoChange}
                                         className="sr-only"
                                     />
                                     {!logoPreview && (
                                         <p className="text-xs text-muted-foreground">
-                                            JPG/PNG, maks 2MB
+                                            JPG/PNG/WebP, maks 10MB
                                         </p>
                                     )}
                                 </div>

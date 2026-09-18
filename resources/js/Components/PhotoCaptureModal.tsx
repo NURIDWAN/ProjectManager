@@ -32,6 +32,13 @@ export interface CapturedPhoto {
     file?: File;
 }
 
+interface PendingFile {
+    id: number;
+    file: File;
+    previewUrl: string;
+    caption: string;
+}
+
 interface PhotoCaptureModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -40,7 +47,7 @@ interface PhotoCaptureModalProps {
     /** Unit index for AC photos (null for non-AC). Photo caption will be 'ac_unit_{index}:caption'. */
     unitIndex: number | null;
     /** Upload function that returns the saved photo. Must throw on failure. */
-    uploadFile: (file: File, caption: string) => Promise<CapturedPhoto>;
+    uploadFile: (file: File, caption: string, type?: 'before' | 'after') => Promise<CapturedPhoto>;
     /** Delete function for uploaded photos. Must throw on failure. */
     deletePhoto: (photo: CapturedPhoto) => Promise<void>;
     /** Called when a new photo is added. */
@@ -53,18 +60,14 @@ interface PhotoCaptureModalProps {
     maxSizeMB?: number;
 }
 
-const VALID_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const VALID_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 /**
  * Compress a captured frame (data URL) until it fits within maxSizeMB.
- * Camera sensors produce huge frames (often >2MB at quality 0.9), which the
- * server rejects (max:2048). Downscale to a sane long edge first, then step
- * down JPEG quality until the blob is small enough.
+ * Camera sensors produce very large frames, so downscale the long edge and
+ * encode as WebP before the file reaches the upload request.
  */
 async function compressDataUrl(dataUrl: string, maxSizeMB: number): Promise<File> {
-    const maxBytes = maxSizeMB * 1024 * 1024;
-    const maxLongEdge = 1600;
-
     const img = new Image();
     await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
@@ -72,43 +75,54 @@ async function compressDataUrl(dataUrl: string, maxSizeMB: number): Promise<File
         img.src = dataUrl;
     });
 
-    const scale = Math.min(1, maxLongEdge / Math.max(img.naturalWidth, img.naturalHeight));
-    const width = Math.round(img.naturalWidth * scale);
-    const height = Math.round(img.naturalHeight * scale);
+    return encodeWebp(img, maxSizeMB);
+}
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Gagal memproses gambar');
-    ctx.drawImage(img, 0, 0, width, height);
+/** Convert every selected image to WebP before it reaches an upload request. */
+export async function compressImageFile(file: File, maxSizeMB: number): Promise<File> {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Gagal membaca gambar'));
+        reader.readAsDataURL(file);
+    });
 
-    // Step down quality until the encoded JPEG fits the size limit.
-    for (const quality of [0.85, 0.75, 0.65, 0.55, 0.45]) {
-        const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),
-        );
-        if (blob && blob.size <= maxBytes) {
-            return new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        }
-        if (quality === 0.45 && blob) {
-            // Even at the lowest quality it is too large — still send it so the
-            // server returns a proper validation error instead of silence.
-            return new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    return compressDataUrl(dataUrl, maxSizeMB);
+}
+
+async function encodeWebp(img: HTMLImageElement, maxSizeMB: number): Promise<File> {
+    const maxBytes = maxSizeMB * 1024 * 1024;
+    const sourceLongEdge = Math.max(img.naturalWidth, img.naturalHeight);
+    const maxLongEdges = [1024, 896, 768, 640];
+    const qualities = [0.82, 0.72, 0.62, 0.52, 0.42];
+
+    for (const maxLongEdge of maxLongEdges) {
+        const scale = Math.min(1, maxLongEdge / sourceLongEdge);
+        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+        const height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Gagal memproses gambar');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        for (const quality of qualities) {
+            const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob((value) => resolve(value), 'image/webp', quality),
+            );
+            if (blob && blob.type === 'image/webp' && blob.size <= maxBytes) {
+                return new File([blob], `photo_${Date.now()}.webp`, { type: 'image/webp' });
+            }
         }
     }
 
-    throw new Error('Gagal mengompres foto');
+    throw new Error(`Foto masih lebih besar dari ${maxSizeMB} MB setelah dikompres`);
 }
 
 /**
- * Modal for capturing/uploading photos with camera or file picker.
- * Features:
- * - Tab switching between upload and camera capture
- * - Live camera preview with device camera selection
- * - Captured photos shown as thumbnails with caption editing
- * - Immediate upload to server on capture
- * - Delete capability for uploaded photos
+ * Modal for reviewing and uploading photos with camera or file picker.
+ * Files are staged locally first and are only sent after confirmation.
  */
 export function PhotoCaptureModal({
     open,
@@ -120,16 +134,17 @@ export function PhotoCaptureModal({
     onPhotoAdded,
     existingPhotos,
     onPhotosChange,
-    maxSizeMB = 2,
+    maxSizeMB = 10,
 }: PhotoCaptureModalProps) {
     const [activeTab, setActiveTab] = useState<'upload' | 'camera'>('upload');
     const [capturing, setCapturing] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [devices, setDevices] = useState<{ label: string; value: string }[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<string>('');
-    const [currentCaption, setCurrentCaption] = useState('');
+
     const [uploadingId, setUploadingId] = useState<number | null>(null);
     const [capturedSnapshots, setCapturedSnapshots] = useState<{ id: number; dataUrl: string; caption: string }[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     /** Last captured photo awaiting review (retake or accept). */
     const [pendingReview, setPendingReview] = useState<string | null>(null);
 
@@ -140,7 +155,8 @@ export function PhotoCaptureModal({
     // Cleanup camera stream when modal closes or component unmounts
     useEffect(() => {
         return () => {
-            stopCamera();
+            streamRef.current?.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
         };
     }, []);
 
@@ -166,8 +182,12 @@ export function PhotoCaptureModal({
 
     const resetState = useCallback(() => {
         setActiveTab('upload');
-        setCurrentCaption('');
+
         setCapturedSnapshots([]);
+        setPendingFiles((files) => {
+            files.forEach((file) => URL.revokeObjectURL(file.previewUrl));
+            return [];
+        });
         setCameraError(null);
         setSelectedDevice('');
         setPendingReview(null);
@@ -265,7 +285,7 @@ export function PhotoCaptureModal({
         if (!ctx) return;
 
         ctx.drawImage(video, 0, 0);
-        setPendingReview(canvas.toDataURL('image/jpeg', 0.9));
+        setPendingReview(canvas.toDataURL('image/webp', 0.85));
     }, []);
 
     // Retake: discard the pending capture and return to the live preview
@@ -279,12 +299,12 @@ export function PhotoCaptureModal({
 
         setCapturedSnapshots((prev) => [
             ...prev,
-            { id: Date.now(), dataUrl: pendingReview, caption: currentCaption },
+            { id: Date.now(), dataUrl: pendingReview, caption: '' },
         ]);
         setPendingReview(null);
-    }, [pendingReview, currentCaption]);
+    }, [pendingReview]);
 
-    // Upload captured photo
+    // Upload captured camera photo after the user confirms the review queue.
     const uploadCapturedPhoto = useCallback(
         async (snapshot: { id: number; dataUrl: string; caption: string }) => {
             setUploadingId(snapshot.id);
@@ -300,7 +320,7 @@ export function PhotoCaptureModal({
                 const finalCaption =
                     unitIndex !== null ? `ac_unit_${unitIndex}:${baseCaption}` : baseCaption;
 
-                const uploaded = await uploadFile(file, finalCaption);
+                const uploaded = await uploadFile(file, finalCaption, photoType);
 
                 // Remove from snapshots and add to existing photos.
                 // Only call onPhotoAdded — the parent owns the list state and
@@ -315,43 +335,62 @@ export function PhotoCaptureModal({
                 setUploadingId(null);
             }
         },
-        [uploadFile, onPhotoAdded, setCapturedSnapshots, maxSizeMB, unitIndex]
+        [uploadFile, onPhotoAdded, maxSizeMB, unitIndex, photoType]
     );
 
-    // Upload all captured photos
-    const uploadAllCaptured = useCallback(() => {
-        capturedSnapshots.forEach((snapshot) => {
-            void uploadCapturedPhoto(snapshot);
-        });
-    }, [capturedSnapshots, uploadCapturedPhoto]);
+    const uploadPendingFile = useCallback(
+        async (pending: PendingFile) => {
+            setUploadingId(pending.id);
+            try {
+                const userCaption = pending.caption || pending.file.name;
+                const finalCaption =
+                    unitIndex !== null ? `ac_unit_${unitIndex}:${userCaption}` : userCaption;
+                const compressed = await compressImageFile(pending.file, maxSizeMB);
+                const uploaded = await uploadFile(compressed, finalCaption, photoType);
+                setPendingFiles((prev) => prev.filter((file) => file.id !== pending.id));
+                URL.revokeObjectURL(pending.previewUrl);
+                onPhotoAdded({ ...uploaded, caption: userCaption });
+            } catch (err) {
+                toast.error(err instanceof Error ? err.message : `Gagal mengunggah ${pending.file.name}`);
+            } finally {
+                setUploadingId(null);
+            }
+        },
+        [uploadFile, unitIndex, onPhotoAdded, photoType, maxSizeMB],
+    );
 
-    // Handle file upload
+    // Upload reviewed items one by one so the progress state and failures are deterministic.
+    const uploadAllPending = useCallback(async () => {
+        if (uploadingId !== null) return;
+        const snapshots = [...capturedSnapshots];
+        const files = [...pendingFiles];
+        for (const snapshot of snapshots) {
+            await uploadCapturedPhoto(snapshot);
+        }
+        for (const file of files) {
+            await uploadPendingFile(file);
+        }
+    }, [capturedSnapshots, pendingFiles, uploadCapturedPhoto, uploadPendingFile, uploadingId]);
+
+    // Stage files locally for review; do not send them to the server yet.
     const handleFileUpload = useCallback(
-        async (files: FileList | null) => {
+        (files: FileList | null) => {
             if (!files) return;
 
             const validFiles = Array.from(files).filter(
-                (file) => VALID_TYPES.includes(file.type) && file.size <= maxSizeMB * 1024 * 1024
+                (file) => VALID_TYPES.includes(file.type) && file.size <= maxSizeMB * 1024 * 1024,
             );
 
-            for (const file of validFiles) {
-                try {
-                    // Custom caption from the shared input, falling back to the
-                    // file name. For AC unit photos the caption must carry the
-                    // ac_unit_{idx}: marker so the report page can group it.
-                    const userCaption = currentCaption.trim() || file.name;
-                    const finalCaption =
-                        unitIndex !== null ? `ac_unit_${unitIndex}:${userCaption}` : userCaption;
-                    const uploaded = await uploadFile(file, finalCaption);
-                    // Parent owns the list state — append there only (avoids
-                    // stale-closure overwrites of the existing photo list).
-                    onPhotoAdded({ ...uploaded, caption: userCaption });
-                } catch {
-                    toast.error(`Gagal mengunggah ${file.name}`);
-                }
-            }
+            const staged = validFiles.map((file, index) => ({
+                id: Date.now() + index,
+                file,
+                previewUrl: URL.createObjectURL(file),
+                caption: file.name,
+            }));
+
+            setPendingFiles((prev) => [...prev, ...staged]);
         },
-        [uploadFile, unitIndex, onPhotoAdded, maxSizeMB, currentCaption]
+        [maxSizeMB],
     );
 
     // Delete photo
@@ -378,8 +417,8 @@ export function PhotoCaptureModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-3rem)]">
+                <DialogHeader className="shrink-0 border-b px-6 py-4">
                     <DialogTitle>Dokumentasi Foto</DialogTitle>
                     <DialogDescription>
                         {photoType === 'before' ? 'Foto sebelum pekerjaan' : 'Foto sesudah pekerjaan'}
@@ -387,7 +426,8 @@ export function PhotoCaptureModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                {/* Tabs */}
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                    {/* Tabs */}
                 <div className="flex gap-1 rounded-lg bg-muted p-1">
                     <Button
                         type="button"
@@ -395,7 +435,7 @@ export function PhotoCaptureModal({
                             'flex-1',
                             activeTab === 'upload'
                                 ? 'bg-primary text-primary-foreground shadow-xs'
-                                : 'bg-background hover:bg-muted hover:text-foreground',
+                                : 'border border-border bg-muted/70 text-foreground hover:bg-muted',
                         )}
                         onClick={() => {
                             stopCamera();
@@ -411,7 +451,7 @@ export function PhotoCaptureModal({
                             'flex-1',
                             activeTab === 'camera'
                                 ? 'bg-primary text-primary-foreground shadow-xs'
-                                : 'bg-background hover:bg-muted hover:text-foreground',
+                                : 'border border-border bg-muted/70 text-foreground hover:bg-muted',
                         )}
                         onClick={() => {
                             setActiveTab('camera');
@@ -425,16 +465,6 @@ export function PhotoCaptureModal({
                     </Button>
                 </div>
 
-                {/* Caption — shared by both tabs (camera captures and file uploads) */}
-                <div className="space-y-2">
-                    <Label htmlFor="photo-capture-caption">Keterangan (opsional)</Label>
-                    <Input
-                        id="photo-capture-caption"
-                        value={currentCaption}
-                        onChange={(e) => setCurrentCaption(e.target.value)}
-                        placeholder="Contoh: Kondisi sebelum perbaikan"
-                    />
-                </div>
 
                 {/* Upload Tab */}
                 {activeTab === 'upload' && (
@@ -449,12 +479,12 @@ export function PhotoCaptureModal({
                             <Upload className="mb-3 size-10 text-muted-foreground" />
                             <p className="text-sm font-medium">Klik untuk pilih file atau drag & drop</p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                JPG, PNG. Maksimal {maxSizeMB}MB per foto.
+                                JPG, PNG, WebP. Maksimal {maxSizeMB}MB per foto.
                             </p>
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept="image/jpeg,image/jpg,image/png"
+                                accept="image/jpeg,image/jpg,image/png,image/webp"
                                 multiple
                                 onChange={(e) => void handleFileUpload(e.target.files)}
                                 className="sr-only"
@@ -583,65 +613,120 @@ export function PhotoCaptureModal({
                             )}
                         </div>
 
-                        {/* Caption — shared input now lives above both tabs */}
-
-                        {/* Captured Snapshots */}
-                        {capturedSnapshots.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label>Foto Siap Unggah ({capturedSnapshots.length})</Label>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={uploadAllCaptured}
-                                        disabled={uploadingId !== null}
-                                    >
-                                        {uploadingId !== null ? (
-                                            <>
-                                                <Loader2 className="mr-2 size-3 animate-spin" />
-                                                Mengunggah...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Check className="mr-2 size-3" />
-                                                Unggah Semua
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {capturedSnapshots.map((snapshot) => (
-                                        <div key={snapshot.id} className="relative aspect-square rounded-lg overflow-hidden border">
-                                            <img
-                                                src={snapshot.dataUrl}
-                                                alt="Tangkapan kamera"
-                                                className="size-full object-cover"
-                                            />
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="size-8"
-                                                    onClick={() =>
-                                                        setCapturedSnapshots((prev) =>
-                                                            prev.filter((s) => s.id !== snapshot.id)
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2 className="size-3" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
-                {/* Existing Photos */}
-                {existingPhotos.length > 0 && (
+                {/* Separate review section shared by Upload File and Ambil Foto modes. */}
+                {(capturedSnapshots.length > 0 || pendingFiles.length > 0) && (
+                    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <Label>Review Foto</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Periksa foto dari upload file dan kamera sebelum dikirim.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={uploadAllPending}
+                                disabled={uploadingId !== null}
+                            >
+                                {uploadingId !== null ? (
+                                    <>
+                                        <Loader2 className="mr-2 size-3 animate-spin" />
+                                        Mengunggah...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="mr-2 size-3" />
+                                        Unggah Semua ({capturedSnapshots.length + pendingFiles.length})
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {capturedSnapshots.map((snapshot) => (
+                                <div key={`camera-${snapshot.id}`} className="relative overflow-hidden rounded-lg border bg-background">
+                                    <div className="relative aspect-square">
+                                        <img src={snapshot.dataUrl} alt="Tangkapan kamera" className="size-full object-cover" />
+                                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">Kamera</span>
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute right-1 top-1 size-7"
+                                        onClick={() => setCapturedSnapshots((prev) => prev.filter((s) => s.id !== snapshot.id))}
+                                        aria-label="Hapus foto kamera dari review"
+                                    >
+                                        <Trash2 className="size-3" />
+                                    </Button>
+                                    </div>
+                                    <div className="border-t p-1">
+                                        <Input
+                                            value={snapshot.caption}
+                                            onChange={(event) =>
+                                                setCapturedSnapshots((prev) =>
+                                                    prev.map((item) =>
+                                                        item.id === snapshot.id
+                                                            ? { ...item, caption: event.target.value }
+                                                            : item,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder="Keterangan foto..."
+                                            maxLength={255}
+                                            className="h-8 w-full text-xs"
+                                            aria-label="Keterangan foto kamera"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            {pendingFiles.map((pending) => (
+                                <div key={`file-${pending.id}`} className="relative overflow-hidden rounded-lg border bg-background">
+                                    <div className="relative aspect-square">
+                                        <img src={pending.previewUrl} alt={pending.file.name} className="size-full object-cover" />
+                                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">File</span>
+                                    </div>
+                                    <div className="border-t p-1">
+                                        <Input
+                                            value={pending.caption}
+                                            onChange={(event) =>
+                                                setPendingFiles((prev) =>
+                                                    prev.map((item) =>
+                                                        item.id === pending.id
+                                                            ? { ...item, caption: event.target.value }
+                                                            : item,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder="Keterangan foto..."
+                                            maxLength={255}
+                                            className="h-8 w-full text-xs"
+                                            aria-label="Keterangan foto upload"
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute right-1 top-1 size-7"
+                                        onClick={() => {
+                                            setPendingFiles((prev) => prev.filter((file) => file.id !== pending.id));
+                                            URL.revokeObjectURL(pending.previewUrl);
+                                        }}
+                                        aria-label="Hapus file dari review"
+                                    >
+                                        <Trash2 className="size-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                    {/* Existing Photos */}
+                    {existingPhotos.length > 0 && (
                     <div className="space-y-2">
                         <Label>Foto Tersimpan ({existingPhotos.length})</Label>
                         <div className="grid grid-cols-3 gap-2">
@@ -670,9 +755,10 @@ export function PhotoCaptureModal({
                             ))}
                         </div>
                     </div>
-                )}
+                    )}
+                </div>
 
-                <DialogFooter>
+                <DialogFooter className="shrink-0 border-t px-6 py-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Tutup
                     </Button>

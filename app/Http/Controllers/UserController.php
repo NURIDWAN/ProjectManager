@@ -68,13 +68,10 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => $data['password'],
-            'role' => $data['role'],
-            'email_verified_at' => now(),
-        ]);
+        $user = User::query()->create(['name' => $data['name'],
+        'email' => $data['email'],
+        'password' => bcrypt($data['password']),
+        'email_verified_at' => now(),]);
 
         $user->assignRole($data['role']);
 
@@ -126,7 +123,7 @@ class UserController extends Controller
     public function destroy(User $user): RedirectResponse
     {
         // Self-deletion guard
-        if ($user->id === auth()->id()) {
+        if ($user->id === auth()->user()?->id) {
             abort(403, 'Anda tidak dapat menghapus akun sendiri.');
         }
 

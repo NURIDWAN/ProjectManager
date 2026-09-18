@@ -22,6 +22,15 @@ interface ClientOption {
     npwp?: string;
 }
 
+interface BapOption {
+    id: number;
+    nomor_surat: string;
+    client_id: number;
+    tanggal: string;
+    client?: { id: number; name: string } | null;
+    work_period?: { start: string | null; end: string | null };
+}
+
 interface ServiceOption {
     id: number;
     code: string;
@@ -58,6 +67,7 @@ interface Settings {
 
 interface Props {
     clients: ClientOption[];
+    baps: BapOption[];
     services: ServiceOption[];
     settings: Settings;
 }
@@ -71,8 +81,9 @@ const formatRupiah = (value: number) => {
     }).format(value);
 };
 
-export default function Create({ clients, services, settings }: Props) {
+export default function Create({ clients, baps, services, settings }: Props) {
     const [selectedClientId, setSelectedClientId] = useState('');
+    const [selectedBapId, setSelectedBapId] = useState('');
     const [items, setItems] = useState<InvoiceItem[]>(
         Array.from({ length: 5 }, () => ({ source: 'master', service_id: null, service_name: '', unit: '', save_to_master: false, manual_type: 'product', quantity: 1, unit_price: 0, discount_percent: 0 }))
     );
@@ -107,6 +118,18 @@ export default function Create({ clients, services, settings }: Props) {
     }, [items, discountTotal, taxPercent, shippingCost, showTax, showDiscount, showShipping, amountPaid]);
 
     const selectedClient = clients.find((c) => String(c.id) === selectedClientId);
+
+    const handleBapChange = (value: string | null) => {
+        const bapId = value === 'none' || !value ? '' : value;
+        setSelectedBapId(bapId);
+
+        const bap = baps.find((item) => String(item.id) === bapId);
+        if (!bap) return;
+
+        setSelectedClientId(String(bap.client_id));
+        setWorkStartDate(bap.work_period?.start ?? '');
+        setWorkEndDate(bap.work_period?.end ?? '');
+    };
 
     const handleAddItem = () => {
         setItems((prev) => [...prev, {
@@ -146,9 +169,27 @@ export default function Create({ clients, services, settings }: Props) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedClientId) { toast.error('Pilih klien terlebih dahulu.'); return; }
-        if (items.length === 0) { toast.error('Tambahkan minimal satu item.'); return; }
+
+        const filledItems = items.filter((item) =>
+            item.source === 'manual'
+                ? item.service_name.trim() || item.unit.trim() || item.unit_price > 0
+                : item.service_id !== null || item.unit_price > 0,
+        );
+        if (filledItems.length === 0) { toast.error('Tambahkan minimal satu barang dan isi harganya.'); return; }
+
+        const invalidItemIndex = filledItems.findIndex((item) =>
+            (item.source !== 'manual' && item.service_id === null) ||
+            (item.source === 'manual' && (!item.service_name.trim() || !item.unit.trim())) ||
+            item.quantity <= 0 || item.unit_price <= 0,
+        );
+        if (invalidItemIndex !== -1) {
+            toast.error(`Lengkapi barang dan harga pada item ${invalidItemIndex + 1}.`);
+            return;
+        }
+
         setProcessing(true);
         router.post('/invoices', {
+            bap_id: selectedBapId ? parseInt(selectedBapId) : null,
             client_id: parseInt(selectedClientId),
             due_date: dueDate || null,
             work_start_date: workStartDate || null,
@@ -158,7 +199,7 @@ export default function Create({ clients, services, settings }: Props) {
             tax_percent: showTax ? taxPercent : 0,
             discount_total: showDiscount ? discountTotal : 0,
             shipping_cost: showShipping ? shippingCost : 0,
-            items: items.map((item) => ({
+            items: filledItems.map((item) => ({
                 source: item.source, service_id: item.service_id,
                 description: item.service_name, unit: item.unit,
                 save_to_master: item.save_to_master, manual_type: item.manual_type,
@@ -223,10 +264,25 @@ export default function Create({ clients, services, settings }: Props) {
 
                         {/* Client + Meta Section */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 border-b p-4 sm:p-6">
-                            {/* Left: Client */}
+                            {/* Left: BAP and Client */}
                             <div className="space-y-3">
                                 <div>
-                                    <Select value={selectedClientId || 'none'} onValueChange={(v) => setSelectedClientId(v === 'none' || !v ? '' : v)} items={Object.fromEntries([['none', '-- Pilih Klien --'], ...clients.map(c => [String(c.id), c.name])])}>
+                                    <Select value={selectedBapId || 'none'} onValueChange={handleBapChange} items={Object.fromEntries([['none', 'Tanpa BAP (opsional)'], ...baps.map((bap) => [String(bap.id), `${bap.nomor_surat} — ${bap.client?.name ?? 'Klien'}`])])}>
+                                        <SelectTrigger className="w-full border-dashed">
+                                            <SelectValue placeholder="Pilih BAP (opsional)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Tanpa BAP (opsional)</SelectItem>
+                                            {baps.map((bap) => (
+                                                <SelectItem key={bap.id} value={String(bap.id)} label={`${bap.nomor_surat} — ${bap.client?.name ?? 'Klien'}`}>
+                                                    {bap.nomor_surat} — {bap.client?.name ?? 'Klien'}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Select value={selectedClientId || 'none'} onValueChange={(v) => setSelectedClientId(v === 'none' || !v ? '' : v)} disabled={Boolean(selectedBapId)} items={Object.fromEntries([['none', '-- Pilih Klien --'], ...clients.map(c => [String(c.id), c.name])])}>
                                         <SelectTrigger className="w-full border-dashed">
                                             <SelectValue placeholder="Pilih Klien..." />
                                         </SelectTrigger>
@@ -238,6 +294,7 @@ export default function Create({ clients, services, settings }: Props) {
                                         </SelectContent>
                                     </Select>
                                     {(errors as any).client_id && <p className="text-xs text-destructive mt-1">{(errors as any).client_id}</p>}
+                                    {selectedBapId && <p className="mt-1 text-xs text-muted-foreground">Klien dan tanggal pekerjaan diambil dari BAP.</p>}
                                 </div>
                                 {selectedClient && (
                                     <div className="space-y-0.5 text-sm text-gray-600">
@@ -248,21 +305,14 @@ export default function Create({ clients, services, settings }: Props) {
                                     </div>
                                 )}
                             </div>
-                            {/* Right: Date & Due */}
+                            {/* Right: Invoice date */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
                                     <span className="text-sm text-gray-500">Tanggal</span>
                                     <span className="text-sm font-medium text-right">{today}</span>
                                 </div>
-                                <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
-                                    <span className="text-sm text-gray-500">Syarat pembayaran</span>
-                                    <span className="text-sm text-right text-gray-400">-</span>
-                                </div>
-                                <div className="flex items-center justify-between sm:grid sm:grid-cols-[100px_1fr] sm:items-center gap-2">
-                                    <span className="text-sm text-gray-500">Tanggal jatuh</span>
-                                    <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                                        className="h-8 text-sm text-right border-dashed w-auto" />
-                                </div>
+
+
                             </div>
                         </div>
 
@@ -277,6 +327,7 @@ export default function Create({ clients, services, settings }: Props) {
                                     type="date"
                                     value={workStartDate}
                                     onChange={(e) => setWorkStartDate(e.target.value)}
+                                    disabled={Boolean(selectedBapId)}
                                     className="border-dashed"
                                 />
                                 {(errors as any).work_start_date && (
@@ -293,6 +344,7 @@ export default function Create({ clients, services, settings }: Props) {
                                     value={workEndDate}
                                     min={workStartDate || undefined}
                                     onChange={(e) => setWorkEndDate(e.target.value)}
+                                    disabled={Boolean(selectedBapId)}
                                     className="border-dashed"
                                 />
                                 {(errors as any).work_end_date && (
@@ -311,7 +363,7 @@ export default function Create({ clients, services, settings }: Props) {
                                             <th className="px-3 py-2 text-center font-semibold w-[48px] rounded-tl">No</th>
                                             <th className="px-3 py-2 text-left font-semibold">Barang</th>
                                             <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
-                                            <th className="px-3 py-2 text-right font-semibold w-[120px]">Kecepatan</th>
+                                            <th className="px-3 py-2 text-right font-semibold w-[120px]">Harga Satuan</th>
                                             <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
                                             <th className="w-[36px]"></th>
                                         </tr>
@@ -366,7 +418,7 @@ export default function Create({ clients, services, settings }: Props) {
                                                 <td className="py-2 px-1">
                                                     <div className="flex items-center gap-1">
                                                         <span className="text-xs text-gray-400">Rp</span>
-                                                        <Input type="number" min="0" step="1000" value={item.unit_price}
+                                                        <Input type="number" min="0.01" step="1000" value={item.unit_price}
                                                             onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                                                             className="h-8 text-sm text-right border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
                                                     </div>
@@ -438,7 +490,7 @@ export default function Create({ clients, services, settings }: Props) {
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-500">Harga</label>
-                                                <Input type="number" min="0" step="1000" value={item.unit_price}
+                                                <Input type="number" min="0.01" step="1000" value={item.unit_price}
                                                     onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                                                     className="h-8 text-sm text-right" />
                                             </div>

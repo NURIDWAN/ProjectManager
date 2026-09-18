@@ -188,7 +188,24 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedClientId) { toast.error('Pilih klien terlebih dahulu.'); return; }
-        if (items.length === 0) { toast.error('Tambahkan minimal satu item.'); return; }
+
+        const filledItems = items.filter((item) =>
+            item.source === 'manual'
+                ? item.service_name.trim() || item.unit.trim() || item.unit_price > 0
+                : item.service_id !== null || item.unit_price > 0,
+        );
+        if (filledItems.length === 0) { toast.error('Tambahkan minimal satu barang dan isi harganya.'); return; }
+
+        const invalidItemIndex = filledItems.findIndex((item) =>
+            (item.source !== 'manual' && item.service_id === null) ||
+            (item.source === 'manual' && (!item.service_name.trim() || !item.unit.trim())) ||
+            item.quantity <= 0 || item.unit_price <= 0,
+        );
+        if (invalidItemIndex !== -1) {
+            toast.error(`Lengkapi barang dan harga pada item ${invalidItemIndex + 1}.`);
+            return;
+        }
+
         setProcessing(true);
         router.put(`/invoices/${invoice.id}`, {
             client_id: parseInt(selectedClientId),
@@ -200,7 +217,7 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
             tax_percent: showTax ? taxPercent : 0,
             discount_total: showDiscount ? discountTotal : 0,
             shipping_cost: showShipping ? shippingCost : 0,
-            items: items.map((item) => ({
+            items: filledItems.map((item) => ({
                 source: item.source, service_id: item.service_id,
                 description: item.service_name, unit: item.unit,
                 save_to_master: item.save_to_master, manual_type: item.manual_type,
@@ -296,14 +313,9 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                     <span className="text-sm text-gray-500">Tanggal</span>
                                     <span className="text-sm font-medium text-right">{today}</span>
                                 </div>
+
                                 <div className="grid grid-cols-[100px_1fr] items-center gap-2">
-                                    <span className="text-sm text-gray-500">Syarat pembayaran</span>
-                                    <span className="text-sm text-right text-gray-400">-</span>
-                                </div>
-                                <div className="grid grid-cols-[100px_1fr] items-center gap-2">
-                                    <span className="text-sm text-gray-500">Tanggal jatuh</span>
-                                    <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                                        className="h-8 text-sm text-right border-dashed" />
+
                                 </div>
                             </div>
                         </div>
@@ -351,7 +363,7 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                         <th className="px-3 py-2 text-center font-semibold w-[48px] rounded-tl">No</th>
                                         <th className="px-3 py-2 text-left font-semibold">Barang</th>
                                         <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
-                                        <th className="px-3 py-2 text-right font-semibold w-[120px]">Kecepatan</th>
+                                        <th className="px-3 py-2 text-right font-semibold w-[120px]">Harga Satuan</th>
                                         <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
                                         <th className="w-[36px]"></th>
                                     </tr>
@@ -406,7 +418,7 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                             <td className="py-2 px-1">
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-xs text-gray-400">Rp</span>
-                                                    <Input type="number" min="0" step="1000" value={item.unit_price}
+                                                    <Input type="number" min="0.01" step="1000" value={item.unit_price}
                                                         onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                                                         className="h-8 text-sm text-right border-0 shadow-none bg-transparent hover:bg-gray-50 w-full" />
                                                 </div>

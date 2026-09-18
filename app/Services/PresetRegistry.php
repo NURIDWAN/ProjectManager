@@ -20,7 +20,7 @@ class PresetRegistry implements PresetRegistryInterface
                 'fields' => [
                     'lokasi' => ['type' => 'text', 'max' => 255, 'required' => true],
                     'tipe_ac' => ['type' => 'select', 'options' => ['Splitduct', 'Cassette', 'Splitwall'], 'required' => true],
-                    'merek' => ['type' => 'text_or_select', 'options' => ['Panasonic', 'Gree', 'Daikin'], 'max' => 100, 'required' => true],
+                    'merek' => ['type' => 'text_or_select', 'options' => ['Panasonic', 'Gree', 'Daikin', 'LG', 'Midea', 'Polytron', 'Tica', 'Changhong', 'Aqua', 'TCL', 'Sharp'], 'max' => 100, 'required' => true],
                     'kapasitas' => ['type' => 'numeric', 'min' => 0.5, 'max' => 30, 'unit' => 'PK', 'required' => true],
                     'suhu_before' => ['type' => 'numeric', 'min' => -10, 'max' => 100, 'unit' => '°C', 'required' => false],
                     'suhu_after' => ['type' => 'numeric', 'min' => -10, 'max' => 100, 'unit' => '°C', 'required' => false],

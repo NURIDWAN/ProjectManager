@@ -10,8 +10,8 @@ class WorkReportImageStorage implements WorkReportImageStorageInterface
 {
     public function storeCompressed(UploadedFile $file, string $directory): string
     {
-        if (! extension_loaded('gd')) {
-            return $file->store($directory, 'public');
+        if (! extension_loaded('gd') || ! function_exists('imagewebp')) {
+            throw new \RuntimeException('Server belum mendukung konversi gambar ke WebP.');
         }
 
         $contents = file_get_contents($file->getRealPath());
@@ -38,7 +38,7 @@ class WorkReportImageStorage implements WorkReportImageStorageInterface
                 imagefill($target, 0, 0, $white);
                 imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
 
-                $path = trim($directory, '/').'/compressed/'.Str::random(40).'.jpg';
+                $path = trim($directory, '/').'/compressed/'.Str::random(40).'.webp';
                 $absolutePath = Storage::disk('public')->path($path);
                 $absoluteDirectory = dirname($absolutePath);
                 if (! is_dir($absoluteDirectory) && ! mkdir($absoluteDirectory, 0755, true) && ! is_dir($absoluteDirectory)) {
@@ -46,8 +46,8 @@ class WorkReportImageStorage implements WorkReportImageStorageInterface
                 }
 
                 $temporaryPath = $absolutePath.'.'.bin2hex(random_bytes(6)).'.tmp';
-                if (! imagejpeg($target, $temporaryPath, (int) config('pdf.upload_images.jpeg_quality', 55))) {
-                    throw new \RuntimeException('Foto tidak dapat dikompres ke JPEG.');
+                if (! imagewebp($target, $temporaryPath, (int) config('pdf.upload_images.webp_quality', 80))) {
+                    throw new \RuntimeException('Foto tidak dapat dikompres ke WebP.');
                 }
                 if (! rename($temporaryPath, $absolutePath)) {
                     @unlink($temporaryPath);

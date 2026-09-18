@@ -22,6 +22,7 @@ class StoreInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'bap_id' => ['nullable', 'integer', 'exists:baps,id'],
             'client_id' => ['required', 'exists:clients,id'],
             'due_date' => ['nullable', 'date'],
             'work_start_date' => ['nullable', 'date', 'required_with:work_end_date'],
@@ -39,7 +40,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.save_to_master' => ['nullable', 'boolean'],
             'items.*.manual_type' => ['nullable', 'required_if:items.*.source,manual', Rule::in([Service::TYPE_SERVICE, Service::TYPE_PRODUCT])],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
@@ -67,7 +68,7 @@ class StoreInvoiceRequest extends FormRequest
             'items.*.quantity.required' => 'Quantity wajib diisi.',
             'items.*.quantity.min' => 'Quantity harus lebih dari 0.',
             'items.*.unit_price.required' => 'Harga satuan wajib diisi.',
-            'items.*.unit_price.min' => 'Harga satuan tidak boleh negatif.',
+            'items.*.unit_price.min' => 'Harga satuan harus lebih dari 0.',
             'items.*.discount_percent.min' => 'Diskon tidak boleh negatif.',
             'items.*.discount_percent.max' => 'Diskon maksimal 100%.',
         ];

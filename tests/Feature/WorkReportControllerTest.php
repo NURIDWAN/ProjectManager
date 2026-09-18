@@ -314,7 +314,7 @@ class WorkReportControllerTest extends TestCase
         $response->assertSessionHasErrors('before_photos.0');
     }
 
-    public function test_store_rejects_photo_over_2mb(): void
+    public function test_store_accepts_photo_under_10mb(): void
     {
         $photo = UploadedFile::fake()->image('large.jpg')->size(3000);
 
@@ -325,7 +325,7 @@ class WorkReportControllerTest extends TestCase
             'after_photos' => [$photo],
         ]);
 
-        $response->assertSessionHasErrors('after_photos.0');
+        $response->assertSessionDoesntHaveErrors('after_photos.0');
     }
 
     // === SHOW ===
@@ -420,6 +420,38 @@ class WorkReportControllerTest extends TestCase
         $this->assertDatabaseHas('work_reports', [
             'id' => $report->id,
             'description' => 'New description',
+        ]);
+    }
+
+    public function test_other_operator_editing_draft_is_added_as_collaborator_without_changing_owner(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->otherTechnician->id,
+            'status' => WorkReport::STATUS_DRAFT,
+            'description' => 'Dibuat teknisi pertama',
+        ]);
+
+        $response = $this->actingAs($this->technician)->put("/work-reports/{$report->id}", [
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'description' => 'Diedit teknisi kedua',
+            'existing_before_photos' => [],
+            'existing_after_photos' => [],
+        ]);
+
+        $response->assertRedirect(route('work-reports.index'));
+        $this->assertDatabaseHas('work_reports', [
+            'id' => $report->id,
+            'technician_id' => $this->otherTechnician->id,
+            'description' => 'Diedit teknisi kedua',
+        ]);
+        $this->assertDatabaseHas('work_report_contributors', [
+            'work_report_id' => $report->id,
+            'user_id' => $this->otherTechnician->id,
+        ]);
+        $this->assertDatabaseHas('work_report_contributors', [
+            'work_report_id' => $report->id,
+            'user_id' => $this->technician->id,
         ]);
     }
 

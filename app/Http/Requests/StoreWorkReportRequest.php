@@ -29,9 +29,9 @@ class StoreWorkReportRequest extends FormRequest
             'area' => ['nullable', 'string', 'max:255'],
             'preset_data' => ['nullable'],
             'before_photos' => ['nullable', 'array'],
-            'before_photos.*' => ['file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'before_photos.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'after_photos' => ['nullable', 'array'],
-            'after_photos.*' => ['file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'after_photos.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'before_captions' => ['nullable', 'array'],
             'before_captions.*' => ['nullable', 'string', 'max:255'],
             'after_captions' => ['nullable', 'array'],
@@ -56,10 +56,10 @@ class StoreWorkReportRequest extends FormRequest
             'category_id.required' => 'Kategori pekerjaan wajib dipilih.',
             'category_id.exists' => 'Kategori pekerjaan yang dipilih tidak valid.',
             'description.required' => 'Deskripsi aktivitas wajib diisi.',
-            'before_photos.*.mimes' => 'Format foto harus JPG, JPEG, atau PNG.',
-            'before_photos.*.max' => 'Ukuran file maksimal 2MB.',
-            'after_photos.*.mimes' => 'Format foto harus JPG, JPEG, atau PNG.',
-            'after_photos.*.max' => 'Ukuran file maksimal 2MB.',
+            'before_photos.*.mimes' => 'Format foto harus JPG, JPEG, PNG, atau WebP.',
+            'before_photos.*.max' => 'Ukuran file maksimal 10MB.',
+            'after_photos.*.mimes' => 'Format foto harus JPG, JPEG, PNG, atau WebP.',
+            'after_photos.*.max' => 'Ukuran file maksimal 10MB.'
         ];
     }
 }

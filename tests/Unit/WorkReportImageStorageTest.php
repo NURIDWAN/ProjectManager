@@ -16,11 +16,11 @@ class WorkReportImageStorageTest extends TestCase
         Storage::fake('public');
         config([
             'pdf.upload_images.max_dimension' => 1024,
-            'pdf.upload_images.jpeg_quality' => 55,
+            'pdf.upload_images.webp_quality' => 80,
         ]);
     }
 
-    public function test_it_stores_uploaded_photo_as_resized_jpeg(): void
+    public function test_it_stores_uploaded_photo_as_resized_webp(): void
     {
         $upload = UploadedFile::fake()->image('large.png', 2400, 1200);
 
@@ -28,8 +28,8 @@ class WorkReportImageStorageTest extends TestCase
 
         Storage::disk('public')->assertExists($path);
         $this->assertStringStartsWith('work-reports/compressed/', $path);
-        $this->assertStringEndsWith('.jpg', $path);
-        $this->assertSame('image/jpeg', mime_content_type(Storage::disk('public')->path($path)));
+        $this->assertStringEndsWith('.webp', $path);
+        $this->assertSame('image/webp', mime_content_type(Storage::disk('public')->path($path)));
         $this->assertSame(
             [1024, 512],
             array_slice(getimagesize(Storage::disk('public')->path($path)), 0, 2),

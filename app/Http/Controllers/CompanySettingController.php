@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CompanySetting;
+use App\Services\WorkReportImageStorageInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +12,10 @@ use Inertia\Response;
 
 class CompanySettingController extends Controller
 {
+    public function __construct(
+        private WorkReportImageStorageInterface $imageStorage,
+    ) {}
+
     /**
      * Show the company settings form.
      */
@@ -37,7 +42,7 @@ class CompanySettingController extends Controller
             'bank_name' => 'nullable|string|max:255',
             'bank_account_name' => 'nullable|string|max:255',
             'bank_account_number' => 'nullable|string|max:100',
-            'company_logo' => 'nullable|image|mimes:jpg,jpeg,png|max:1024',
+            'company_logo' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:10240',
         ]);
 
         // Handle logo upload
@@ -48,7 +53,7 @@ class CompanySettingController extends Controller
                 Storage::disk('public')->delete($oldLogo);
             }
 
-            $logoPath = $request->file('company_logo')->store('company', 'public');
+            $logoPath = $this->imageStorage->storeCompressed($request->file('company_logo'), 'company');
             CompanySetting::set('company_logo', $logoPath);
         }
 

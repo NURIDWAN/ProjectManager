@@ -257,6 +257,25 @@ class InvoiceControllerTest extends TestCase
         $this->assertSame('2026-07-31', $invoice->work_end_date->format('Y-m-d'));
     }
 
+    public function test_store_allows_missing_work_period_without_bap(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => [[
+                'service_id' => $this->service->id,
+                'quantity' => 1,
+                'unit_price' => 500000,
+                'discount_percent' => 0,
+            ]],
+        ]);
+
+        $response->assertRedirect();
+        $invoice = Invoice::latest('id')->firstOrFail();
+        $this->assertNull($invoice->bap_id);
+        $this->assertNull($invoice->work_start_date);
+        $this->assertNull($invoice->work_end_date);
+    }
+
     public function test_store_rejects_work_end_date_before_start_date(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
@@ -399,6 +418,37 @@ class InvoiceControllerTest extends TestCase
         $response->assertSessionHasErrors('items');
     }
 
+    public function test_store_rejects_item_without_service_or_manual_description(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => [[
+                'source' => 'master',
+                'service_id' => null,
+                'quantity' => 1,
+                'unit_price' => 100000,
+            ]],
+        ]);
+
+        $response->assertSessionHasErrors('items.0.service_id');
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_store_rejects_zero_item_price(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/invoices', [
+            'client_id' => $this->client->id,
+            'items' => [[
+                'service_id' => $this->service->id,
+                'quantity' => 1,
+                'unit_price' => 0,
+            ]],
+        ]);
+
+        $response->assertSessionHasErrors('items.0.unit_price');
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
     public function test_store_fails_with_invalid_client_id(): void
     {
         $response = $this->actingAs($this->admin)->post('/invoices', [
@@ -508,6 +558,58 @@ class InvoiceControllerTest extends TestCase
         $invoice->refresh();
         $this->assertEquals(Invoice::STATUS_UNPAID, $invoice->status);
         $this->assertEquals($dueDate, $invoice->due_date->format('Y-m-d'));
+    }
+
+    public function test_issuing_invoice_deletes_bap_work_reports_but_keeps_bap_and_invoice(): void
+    {
+        $workReport = WorkReport::factory()->submitted()->create([
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'technician_id' => $this->technician->id,
+        ]);
+        $bap = Bap::factory()->approved()->create([
+            'nomor_surat' => 'BAP/ISSUE/01/2024',
+            'client_id' => $this->client->id,
+            'work_report_ids' => [$workReport->id],
+        ]);
+        $invoice = Invoice::factory()->create([
+            'bap_id' => $bap->id,
+            'client_id' => $this->client->id,
+            'status' => Invoice::STATUS_DRAFT,
+        ]);
+
+        $response = $this->actingAs($this->admin)->post("/invoices/{$invoice->id}/mark-unpaid", [
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('work_reports', ['id' => $workReport->id]);
+        $this->assertDatabaseHas('baps', ['id' => $bap->id]);
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'bap_id' => $bap->id,
+            'status' => Invoice::STATUS_UNPAID,
+        ]);
+    }
+
+    public function test_issuing_invoice_without_bap_keeps_work_reports(): void
+    {
+        $workReport = WorkReport::factory()->submitted()->create([
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'technician_id' => $this->technician->id,
+        ]);
+        $invoice = Invoice::factory()->create([
+            'bap_id' => null,
+            'client_id' => $this->client->id,
+            'status' => Invoice::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs($this->admin)->post("/invoices/{$invoice->id}/mark-unpaid", [
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('work_reports', ['id' => $workReport->id]);
     }
 
     public function test_mark_unpaid_requires_due_date(): void

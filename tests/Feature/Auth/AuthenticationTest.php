@@ -44,6 +44,22 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    public function test_non_admin_login_does_not_reuse_admin_intended_url(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
+
+        $this->get('/dashboard')->assertRedirect(route('login'));
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('work-reports.index', absolute: false));
+        $this->get('/work-reports')->assertOk();
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create();

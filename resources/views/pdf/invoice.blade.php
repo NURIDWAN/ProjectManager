@@ -338,41 +338,34 @@
                             <td class="separator">:</td>
                             <td class="value">{{ $invoice->invoice_number }}</td>
                         </tr>
-                        <tr>
-                            <td class="label">Termin</td>
-                            <td class="separator">:</td>
-                            <td class="value">
-                                @if($invoice->due_date)
-                                    @php
-                                        $termin = (int) round(abs($invoice->created_at->startOfDay()->diffInDays($invoice->due_date->startOfDay())));
-                                    @endphp
-                                    {{ $termin }} hari
-                                @else
-                                    -
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="label">Due Date</td>
-                            <td class="separator">:</td>
-                            <td class="value">{{ $invoice->due_date ? $invoice->due_date->translatedFormat('d F Y') : '-' }}</td>
-                        </tr>
+                        @if($invoice->bap)
+                            <tr>
+                                <td class="label">Referensi</td>
+                                <td class="separator">:</td>
+                                <td class="value">{{ $invoice->bap->nomor_surat }}</td>
+                            </tr>
+                        @endif
+                        @if($invoice->bap && $invoice->work_start_date)
+                            <tr>
+                                <td class="label">Tanggal Mulai</td>
+                                <td class="separator">:</td>
+                                <td class="value">{{ $invoice->work_start_date->translatedFormat('d F Y') }}</td>
+                            </tr>
+                        @endif
+                        @if($invoice->bap && $invoice->work_end_date)
+                            <tr>
+                                <td class="label">Tanggal Selesai</td>
+                                <td class="separator">:</td>
+                                <td class="value">{{ $invoice->work_end_date->translatedFormat('d F Y') }}</td>
+                            </tr>
+                        @endif
+
                     </table>
                 </td>
             </tr>
         </table>
     </div>
 
-    @if($invoice->work_start_date || $invoice->work_end_date)
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
-        <tr>
-            <td style="width: 25%; border: 1px solid #ddd; background: #f7f7f7; padding: 7px 10px; font-weight: bold;">Tanggal Mulai Pekerjaan</td>
-            <td style="width: 25%; border: 1px solid #ddd; padding: 7px 10px;">{{ $invoice->work_start_date ? $invoice->work_start_date->translatedFormat('d F Y') : '-' }}</td>
-            <td style="width: 25%; border: 1px solid #ddd; background: #f7f7f7; padding: 7px 10px; font-weight: bold;">Tanggal Selesai Pekerjaan</td>
-            <td style="width: 25%; border: 1px solid #ddd; padding: 7px 10px;">{{ $invoice->work_end_date ? $invoice->work_end_date->translatedFormat('d F Y') : '-' }}</td>
-        </tr>
-    </table>
-    @endif
 
     {{-- Items Table --}}
     <table class="items-table">
@@ -490,8 +483,7 @@
                 <td>
                     <div class="sign-label">Diterima Oleh,</div>
                     <div class="sign-name">
-                        <div class="sign-line">&nbsp;</div><br>
-                        {{ $client->pic_name ?? '(...............................)' }}
+                        <div class="sign-line">&nbsp;</div>
                     </div>
                 </td>
             </tr>

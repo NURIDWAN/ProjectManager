@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Upload, X, Loader2, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PhotoCaptureModal, CapturedPhoto } from './PhotoCaptureModal';
+import { PhotoCaptureModal, CapturedPhoto, compressImageFile } from './PhotoCaptureModal';
 
 export interface DraftPhoto {
     id: number;
@@ -17,7 +17,7 @@ interface DraftPhotoUploadProps {
     /** Called whenever the photo list changes (upload finished, removed, caption edited). */
     onPhotosChange: (photos: DraftPhoto[]) => void;
     /** Uploads one file; must throw on failure. */
-    uploadFile: (file: File, caption: string) => Promise<DraftPhoto>;
+    uploadFile: (file: File, caption: string, type?: 'before' | 'after') => Promise<DraftPhoto>;
     /** Deletes one uploaded photo; must throw on failure. */
     deletePhoto: (photo: DraftPhoto) => Promise<void>;
     /** Type of photo: 'before' or 'after' */
@@ -30,8 +30,8 @@ interface DraftPhotoUploadProps {
     className?: string;
 }
 
-const MAX_SIZE_MB = 2;
-const VALID_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const MAX_SIZE_MB = 10;
+const VALID_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 /**
  * Photo uploader that persists each file to the server immediately.
@@ -99,7 +99,8 @@ export function DraftPhotoUpload({
                 updateList((prev) => [...prev, placeholder]);
 
                 try {
-                    const uploaded = await uploadFile(file, '');
+                    const compressed = await compressImageFile(file, MAX_SIZE_MB);
+                    const uploaded = await uploadFile(compressed, '', photoType);
                     updateList((prev) =>
                         prev.map((p) => (p.id === placeholder.id ? uploaded : p)),
                     );
@@ -113,7 +114,7 @@ export function DraftPhotoUpload({
                 inputRef.current.value = '';
             }
         },
-        [updateList, uploadFile],
+        [updateList, uploadFile, photoType],
     );
 
     const removePhoto = useCallback(
@@ -154,7 +155,7 @@ export function DraftPhotoUpload({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
                 multiple
                 onChange={(e) => void handleFiles(e.target.files)}
                 className="sr-only"

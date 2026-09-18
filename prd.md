@@ -9,15 +9,18 @@ Perusahaan jasa IT/teknis saat ini mengelola laporan kerja teknisi, berita acara
 - Semua dokumen (BAP & invoice) bisa dicetak sebagai PDF dengan format resmi.
 
 ## 2. Requirements
-- **Multi-peran dengan hak akses:** Admin (mengelola master data, validasi laporan, buat BAP & invoice) dan Teknisi (input laporan kerja).
+- **Multi-peran dengan hak akses:** Admin mengelola master data, BAP, invoice, dan pengguna; Staff dapat mengelola laporan dan proses operasional; Teknisi dapat membuat dan memperbarui laporan kerja.
+- **Kolaborator laporan:** Pembuat laporan tetap menjadi pemilik awal, sementara setiap user yang mengedit atau mengautosave laporan tercatat sebagai `User Collaborator`. Kolaborator ditampilkan sebagai badge lingkaran bertumpuk dengan detail nama saat hover atau klik.
 - **Manajemen data master:** Klien lengkap dengan NPWP & PIC; kategori pekerjaan; katalog jasa/produk beserta satuan dan harga.
-- **Laporan Pekerjaan:** Teknisi bisa memilih klien, kategori, menulis detail aktivitas, upload foto sebelum/sesudah, dan menyimpan sebagai Draft atau Submit.
+- **Laporan Pekerjaan:** User dapat memilih klien, kategori, menulis detail aktivitas, dan menambahkan foto sebelum/sesudah. Create dan update hanya menyimpan Draft; Submit dilakukan dari tabel laporan dan membutuhkan konfirmasi.
+- **Dokumentasi Foto:** Foto dari file maupun kamera masuk ke review queue sebelum dikirim, dapat dihapus sebelum upload, dikonversi ke WebP, dikompres, dan dibatasi maksimal 10 MB per foto.
 - **BAP (Berita Acara Pekerjaan):** Admin menarik data laporan yang sudah disubmit, generate nomor surat otomatis, opsional tanda tangan digital, dan export PDF.
-- **Invoice:** Dari BAP yang sudah Approved, admin generate invoice otomatis. Item diambil dari katalog jasa/produk terkait pekerjaan, jumlah dihitung qty × harga, plus PPN & diskon. Status Unpaid/Overdue/Paid.
+- **Invoice:** Admin dapat memilih BAP Approved yang belum memiliki invoice atau membuat invoice tanpa BAP. Jika memakai BAP, klien dan periode pekerjaan diambil otomatis dari laporan kerja terkait. Item menggunakan harga satuan, dengan PPN & diskon. Status Unpaid/Overdue/Paid.
 - **Dashboard:** Menampilkan total klien aktif, jumlah pekerjaan bulan ini, total invoice unpaid (Rp), grafik tren pendapatan dari invoice yang sudah Paid per bulan.
 - **Otomatisasi perhitungan** Pajak (PPN 11%) dan diskon per item atau total.
-- **Validasi status & alur:** Draft → Submitted → Approved (untuk BAP); Draft → Unpaid → Paid (invoice), dengan overdue otomatis jika melewati jatuh tempo.
-- **Keamanan sederhana:** Login, peran, dan hak akses.
+- **Validasi status & alur:** Draft → Submitted untuk laporan kerja; laporan Submitted dapat dipakai untuk BAP Draft → Approved; invoice Draft → Unpaid → Paid, dengan overdue otomatis jika melewati jatuh tempo.
+- **Keamanan sederhana:** Login, peran, dan hak akses. Semua user tidak diperbolehkan menghapus akun sendiri; admin juga tidak dapat menghapus akun yang sedang digunakan.
+- **PDF resmi:** BAP dan invoice dapat diekspor ke PDF. Invoice menggunakan label `Harga Satuan`; area `Diterima Oleh` hanya menyediakan garis tanda tangan tanpa menampilkan nama penerima.
 - **Responsif** agar bisa diakses dari laptop maupun tablet teknisi di lapangan.
 
 ## 3. Core Features
@@ -27,7 +30,10 @@ Perusahaan jasa IT/teknis saat ini mengelola laporan kerja teknisi, berita acara
   - CRUD Jasa & Produk (nama, satuan, harga satuan)
 - **Laporan Pekerjaan**
   - Form input: pilih klien & kategori, isi deskripsi aktivitas, upload foto sebelum & sesudah
-  - Simpan sebagai Draft, atau Submit untuk review admin
+  - Foto ditinjau terlebih dahulu pada modal, baik dari file maupun kamera
+  - Simpan sebagai Draft melalui create, update, atau autosave
+  - Submit hanya dari tabel laporan dengan modal konfirmasi
+  - User collaborator dicatat otomatis saat membuat atau mengedit laporan
   - Daftar laporan dengan filter status
 - **BAP (Berita Acara)**
   - Generate dari satu atau beberapa laporan yang sudah Submitted
@@ -37,11 +43,14 @@ Perusahaan jasa IT/teknis saat ini mengelola laporan kerja teknisi, berita acara
   - Simpan sebagai Draft, lalu Approve
   - Export PDF dengan layout formal
 - **Invoice**
-  - Generate dari BAP yang sudah Approved
-  - Item invoice diambil dari jasa/produk yang digunakan, qty diisi manual/otomatis
+  - Pilih BAP Approved yang belum memiliki invoice, atau pilih `Tanpa BAP`
+  - Klien otomatis mengikuti BAP jika BAP dipilih
+  - Tanggal mulai dan selesai pekerjaan diambil dari tanggal laporan kerja paling awal dan paling akhir pada BAP
+  - Jika tanpa BAP, klien dan tanggal pekerjaan dapat diisi manual dan tetap opsional
+  - Item invoice menggunakan harga satuan; qty dapat diisi manual/otomatis
   - Hitung subtotal, PPN, diskon, dan total
-  - Status: Unpaid, Overdue (otomatis setelah jatuh tempo), Paid
-  - Export PDF dengan kop surat
+  - Status: Draft, Unpaid, Overdue (otomatis setelah jatuh tempo), Paid
+  - Export PDF dengan kop surat, harga satuan, dan tanpa nama penerima pada area tanda tangan
 - **Dashboard**
   - Kartu: Total Klien Aktif, Pekerjaan Bulan Ini, Total Invoice Unpaid (Rp)
   - Grafik garis: Pendapatan dari invoice Paid per bulan dalam 12 bulan terakhir
@@ -49,12 +58,15 @@ Perusahaan jasa IT/teknis saat ini mengelola laporan kerja teknisi, berita acara
 
 ## 4. User Flow
 1. **Admin** mengisi data master: klien, kategori pekerjaan, jasa/produk.
-2. **Teknisi** login, membuat laporan pekerjaan baru → pilih klien & kategori → isi detail → upload foto → simpan Draft atau Submit.
-3. **Admin** melihat daftar laporan berstatus Submitted → pilih laporan yang selesai → klik “Buat BAP”.
-4. **Admin** check BAP, verifikasi detail, tambahkan keterangan, lalu Approve.
-5. Setelah BAP Approved, **Admin** buat invoice dari BAP tersebut → item otomatis terisi → cek jumlah dan diskon → simpan & ubah status menjadi Unpaid.
-6. **Admin** mengirim invoice (PDF) ke klien; setelah pembayaran, admin mengubah status menjadi Paid.
-7. **Manajemen** memantau dashboard untuk melihat performa dan piutang.
+2. **Teknisi/Staff** login, membuat laporan pekerjaan baru → pilih klien & kategori → isi detail → pilih foto dari file atau kamera → review foto → simpan Draft.
+3. User dapat mengedit laporan yang sama; setiap editor otomatis ditambahkan sebagai `User Collaborator` tanpa mengganti pemilik awal.
+4. User melakukan Submit dari tabel laporan setelah pekerjaan selesai dan mengonfirmasi modal submit.
+5. **Admin** melihat daftar laporan berstatus Submitted → pilih laporan yang selesai → klik “Buat BAP”.
+6. **Admin** memeriksa BAP, memverifikasi detail, menambahkan keterangan, lalu Approve.
+7. **Admin** membuat invoice dengan memilih BAP Approved atau tanpa BAP. Jika BAP dipilih, klien serta tanggal pekerjaan terisi dari laporan terkait; jika tidak, nilai tersebut dapat diisi manual.
+8. Admin memeriksa item, harga satuan, jumlah, dan diskon, lalu menyimpan invoice serta mengubah status menjadi Unpaid.
+9. **Admin** mengirim invoice (PDF) ke klien; setelah pembayaran, admin mengubah status menjadi Paid.
+10. **Manajemen** memantau dashboard untuk melihat performa dan piutang.
 
 ## 5. Architecture
 ```mermaid
@@ -111,7 +123,6 @@ erDiagram
     BAPS {
         int id PK
         string nomor_surat UK
-        int work_report_id FK "nullable, bisa gabungan"
         int client_id FK
         date tanggal
         string status "draft|approved"
@@ -122,13 +133,15 @@ erDiagram
     INVOICES {
         int id PK
         string invoice_number UK
-        int bap_id FK
+        int bap_id FK "nullable"
         int client_id FK
         decimal subtotal
         decimal discount_total
         decimal ppn
         decimal grand_total
         date due_date
+        date work_start_date "nullable"
+        date work_end_date "nullable"
         string status "draft|unpaid|overdue|paid"
         timestamps
     }
@@ -146,16 +159,23 @@ erDiagram
         string name
         string email UK
         string password
-        string role "admin|technician"
+        string role "admin|staff|technician"
+    }
+    WORK_REPORT_CONTRIBUTORS {
+        int work_report_id FK
+        int user_id FK
+        timestamps
     }
 
     CLIENTS ||--o{ WORK_REPORTS : "has"
     JOB_CATEGORIES ||--o{ WORK_REPORTS : "has"
-    USERS ||--o{ WORK_REPORTS : "submits"
+    USERS ||--o{ WORK_REPORTS : "owns"
+    USERS ||--o{ WORK_REPORT_CONTRIBUTORS : "collaborates"
+    WORK_REPORTS ||--o{ WORK_REPORT_CONTRIBUTORS : "has collaborators"
     CLIENTS ||--o{ BAPS : "related"
-    WORK_REPORTS ||--o| BAPS : "referenced by"
+    WORK_REPORTS }o--o{ BAPS : "included in"
     CLIENTS ||--o{ INVOICES : "billed"
-    BAPS ||--o| INVOICES : "generates"
+    BAPS ||--o| INVOICES : "optionally generates"
     INVOICES ||--o{ INVOICE_ITEMS : "contains"
     SERVICES ||--o{ INVOICE_ITEMS : "referenced"
 ```
@@ -165,11 +185,12 @@ erDiagram
 - **clients**: Data klien, termasuk NPWP dan PIC.
 - **job_categories**: Kategori pekerjaan (contoh: Instalasi, Maintenance).
 - **services**: Daftar jasa/produk yang bisa ditagih. Tipe `service` untuk jasa (satuan jam/paket) dan `product` untuk barang.
-- **work_reports**: Laporan kerja teknisi. `before_photos` dan `after_photos` sebagai JSON array path.
-- **baps**: Berita Acara. Dapat menampung beberapa `work_report_id` (disimpan JSON) untuk efisiensi.
-- **invoices**: Satu BAP menghasilkan satu invoice. `due_date` digunakan untuk menentukan overdue.
-- **invoice_items**: Item per baris invoice, mereferensi `services`.
-- **users**: Pengguna dengan role admin/teknisi.
+- **work_reports**: Laporan kerja user. `before_photos` dan `after_photos` menyimpan kompatibilitas path foto; dokumentasi utama juga direpresentasikan oleh item foto tersimpan.
+- **work_report_contributors**: Pivot unik yang mencatat pemilik/editor laporan sebagai kolaborator tanpa mengganti `technician_id` atau pemilik awal.
+- **baps**: Berita Acara. Dapat menampung beberapa `work_report_id` melalui JSON untuk efisiensi.
+- **invoices**: Invoice dapat memiliki BAP atau berdiri sendiri. `due_date` digunakan untuk menentukan overdue; `work_start_date` dan `work_end_date` menyimpan periode pekerjaan.
+- **invoice_items**: Item per baris invoice, mereferensi `services` atau input manual, dengan `unit_price` sebagai harga satuan.
+- **users**: Pengguna dengan role admin, staff, atau teknisi; tidak ada user yang boleh menghapus akun sendiri.
 
 ## 7. Tech Stack
 - **Backend:** Laravel 11 (PHP 8.2+), Eloquent ORM

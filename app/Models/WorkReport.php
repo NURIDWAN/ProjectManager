@@ -5,8 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @method static \Illuminate\Database\Eloquent\Builder<static> query()
+ * @method static static create(array $attributes = [])
+ * @method static static|null find(mixed $id, array|string $columns = ['*'])
+ * @method static static findOrFail(mixed $id, array|string $columns = ['*'])
+ */
 class WorkReport extends Model
 {
     use HasFactory;
@@ -58,6 +65,14 @@ class WorkReport extends Model
     public function transferredFrom(): BelongsTo
     {
         return $this->belongsTo(User::class, 'transferred_from_id');
+    }
+
+    public function contributors(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'work_report_contributors')
+            ->select(['users.id', 'users.name'])
+            ->orderBy('users.name')
+            ->withTimestamps();
     }
 
     public function photos(): HasMany

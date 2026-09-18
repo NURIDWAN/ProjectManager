@@ -3,19 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreInvoiceRequest;
+use App\Models\Bap;
 use App\Models\Client;
 use App\Models\CompanySetting;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
+use App\Models\WorkReport;
 use App\Services\InvoiceCalculationServiceInterface;
 use App\Services\InvoiceNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;
+use App\Services\PdfImageOptimizerInterface;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,7 +30,8 @@ class InvoiceController extends Controller
     public function __construct(
         private InvoiceCalculationServiceInterface $calculationService,
         private InvoiceNumberGeneratorInterface $numberGenerator,
-        private PdfExportServiceInterface $pdfExportService
+        private PdfExportServiceInterface $pdfExportService,
+        private PdfImageOptimizerInterface $pdfImageOptimizer
     ) {}
 
     /**
@@ -53,7 +59,7 @@ class InvoiceController extends Controller
 
         return Inertia::render('Invoices/Index', [
             'invoices' => $invoices,
-            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
+            'clients' => fn () => Client::query()->select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'status' => $request->input('status', ''),
                 'client_id' => $request->input('client_id', ''),
@@ -70,11 +76,22 @@ class InvoiceController extends Controller
         $clients = Client::select('id', 'name', 'address', 'pic_name', 'npwp')->orderBy('name')->get();
         $services = Service::active()->orderBy('name')->get();
         $settings = CompanySetting::allSettings();
+        $baps = Bap::query()
+            ->with('client:id,name')
+            ->where('status', Bap::STATUS_APPROVED)
+            ->whereDoesntHave('invoice')
+            ->latest('tanggal')
+            ->get(['id', 'nomor_surat', 'client_id', 'tanggal', 'work_report_ids']);
+
+        $baps->each(function (Bap $bap): void {
+            $bap->setAttribute('work_period', $this->workPeriodForBap($bap));
+        });
 
         return Inertia::render('Invoices/Create', [
             'clients' => $clients,
             'services' => $services,
             'settings' => $settings,
+            'baps' => $baps,
         ]);
     }
 
@@ -84,6 +101,21 @@ class InvoiceController extends Controller
     public function store(StoreInvoiceRequest $request): RedirectResponse
     {
         $invoiceNumber = $this->numberGenerator->generate(Carbon::now());
+        $bap = $request->filled('bap_id')
+            ? Bap::query()
+                ->whereKey($request->integer('bap_id'))
+                ->where('status', Bap::STATUS_APPROVED)
+                ->whereDoesntHave('invoice')
+                ->firstOrFail()
+            : null;
+
+        if ($bap && (int) $request->input('client_id') !== (int) $bap->client_id) {
+            throw ValidationException::withMessages([
+                'client_id' => 'Klien invoice harus sama dengan klien pada BAP.',
+            ]);
+        }
+
+        $workPeriod = $bap ? $this->workPeriodForBap($bap) : null;
 
         // Calculate totals from items
         $items = $request->input('items', []);
@@ -109,10 +141,10 @@ class InvoiceController extends Controller
         // Grand total = subtotal - discount + tax + shipping
         $grandTotal = round($subtotal - $discountTotal + $ppn + $shippingCost, 2);
 
-        $invoice = DB::transaction(function () use ($request, $invoiceNumber, $items, $lineTotals, $subtotal, $discountTotal, $taxPercent, $ppn, $shippingCost, $grandTotal) {
+        $invoice = DB::transaction(function () use ($request, $invoiceNumber, $bap, $workPeriod, $items, $lineTotals, $subtotal, $discountTotal, $taxPercent, $ppn, $shippingCost, $grandTotal) {
             $invoice = Invoice::create([
                 'invoice_number' => $invoiceNumber,
-                'bap_id' => null,
+                'bap_id' => $bap?->id,
                 'client_id' => $request->input('client_id'),
                 'subtotal' => $subtotal,
                 'discount_total' => $discountTotal,
@@ -122,8 +154,8 @@ class InvoiceController extends Controller
                 'grand_total' => $grandTotal,
                 'status' => Invoice::STATUS_DRAFT,
                 'due_date' => $request->input('due_date'),
-                'work_start_date' => $request->input('work_start_date'),
-                'work_end_date' => $request->input('work_end_date'),
+                'work_start_date' => $workPeriod['start'] ?? $request->input('work_start_date'),
+                'work_end_date' => $workPeriod['end'] ?? $request->input('work_end_date'),
                 'paid_at' => null,
                 'notes' => $request->input('notes'),
                 'terms' => $request->input('terms'),
@@ -136,6 +168,25 @@ class InvoiceController extends Controller
 
         return Redirect::route('invoices.show', $invoice->id)
             ->with('success', 'Invoice berhasil dibuat.');
+    }
+
+    /**
+     * Return the earliest and latest work-report dates linked to a BAP.
+     * Reports use submitted_at when available, otherwise created_at.
+     */
+    private function workPeriodForBap(Bap $bap): array
+    {
+        $dates = WorkReport::query()
+            ->whereIn('id', $bap->work_report_ids ?? [])
+            ->get(['created_at', 'submitted_at'])
+            ->map(fn (WorkReport $report) => $report->submitted_at ?? $report->created_at)
+            ->filter()
+            ->sort();
+
+        return [
+            'start' => $dates->first()?->toDateString(),
+            'end' => $dates->last()?->toDateString(),
+        ];
     }
 
     /**
@@ -257,13 +308,57 @@ class InvoiceController extends Controller
             'due_date.after_or_equal' => 'Tanggal jatuh tempo harus hari ini atau setelahnya.',
         ]);
 
-        $invoice->update([
-            'status' => Invoice::STATUS_UNPAID,
-            'due_date' => $request->input('due_date'),
-        ]);
+        DB::transaction(function () use ($invoice, $request): void {
+            $this->deleteBapWorkReports($invoice);
+
+            $invoice->update([
+                'status' => Invoice::STATUS_UNPAID,
+                'due_date' => $request->input('due_date'),
+            ]);
+        });
 
         return Redirect::route('invoices.show', $invoice->id)
-            ->with('success', 'Invoice berhasil diubah ke status "unpaid".');
+            ->with('success', 'Invoice diterbitkan. Laporan harian dari BAP telah dihapus dan BAP tetap disimpan.');
+    }
+
+    /**
+     * Delete the daily reports represented by an invoice's BAP after issuance.
+     * The BAP and invoice are intentionally preserved as historical documents.
+     */
+    private function deleteBapWorkReports(Invoice $invoice): void
+    {
+        if (! $invoice->bap_id) {
+            return;
+        }
+
+        $reportIds = array_values(array_filter($invoice->bap?->work_report_ids ?? [], 'is_numeric'));
+        if ($reportIds === []) {
+            return;
+        }
+
+        $reports = WorkReport::with('photos')
+            ->whereIn('id', $reportIds)
+            ->get();
+
+        foreach ($reports as $report) {
+            foreach ($report->photos as $photo) {
+                $this->deleteReportPhotoFile($photo->photo_path);
+            }
+
+            foreach ([...($report->before_photos ?? []), ...($report->after_photos ?? [])] as $path) {
+                if (is_string($path) && $path !== '') {
+                    $this->deleteReportPhotoFile($path);
+                }
+            }
+            $report->contributors()->detach();
+            $report->delete();
+        }
+    }
+
+    private function deleteReportPhotoFile(string $path): void
+    {
+        $this->pdfImageOptimizer->deleteDerivatives($path);
+        Storage::disk('public')->delete($path);
     }
 
     /**

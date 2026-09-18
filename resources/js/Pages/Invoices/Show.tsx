@@ -302,13 +302,7 @@ export default function Show({ invoice }: Props) {
 
                         <Separator />
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Jatuh Tempo</p>
-                                <p className="text-sm">
-                                    {invoice.due_date ? formatDate(invoice.due_date) : '-'}
-                                </p>
-                            </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Mulai Pekerjaan</p>
                                 <p className="text-sm">
@@ -501,10 +495,7 @@ export default function Show({ invoice }: Props) {
                 {invoice.status === 'overdue' && (
                     <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                         <p className="text-sm font-medium text-red-700">
-                            Invoice telah melewati jatuh tempo
-                        </p>
-                        <p className="mt-1 text-xs text-red-600">
-                            Jatuh tempo: {invoice.due_date ? formatDate(invoice.due_date) : '-'}
+                            Invoice telah melewati batas pembayaran
                         </p>
                     </div>
                 )}

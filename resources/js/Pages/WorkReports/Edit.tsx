@@ -49,7 +49,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft,
     Save,
-    Send,
+
     ClipboardList,
     Camera,
     Thermometer,
@@ -227,6 +227,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
 
     const { state, lastSavedAt, markDirty, flush, reset } = useWorkReportAutosave({
         buildPayload: buildAutosavePayload,
+        initialReportId: workReport.id,
         onError: (message) => toast.error(message),
     });
 
@@ -368,52 +369,6 @@ export default function Edit({ workReport, clients, categories }: Props) {
         });
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setProcessing(true);
-        setErrors({});
-
-        // Client-side validation for submit
-        const validationErrors: Record<string, string> = {};
-        if (!clientId) validationErrors.client_id = 'Klien wajib dipilih.';
-        if (!categoryId) validationErrors.category_id = 'Kategori wajib dipilih.';
-        if (!description.trim()) validationErrors.description = 'Deskripsi wajib diisi.';
-        if (!area.trim()) validationErrors.area = 'Area wajib diisi.';
-        if (!selectedCategoryIsAc && existingAfterPhotos.length === 0) {
-            validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
-        }
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            toast.error('Lengkapi data yang diperlukan sebelum submit.');
-            setProcessing(false);
-            return;
-        }
-
-        if (isDraft) {
-            // Persist latest edits first, then submit
-            const saved = await flush();
-            if (!saved) {
-                toast.error('Gagal menyiapkan laporan. Coba lagi.');
-                setProcessing(false);
-                return;
-            }
-
-            router.post(`/work-reports/${workReport.id}/submit`, {}, {
-                onSuccess: () => {
-                    toast.success('Laporan kerja berhasil disubmit.');
-                },
-                onError: (errs) => {
-                    const errorMsg = Object.values(errs).flat().join(', ');
-                    toast.error(errorMsg || 'Gagal submit laporan kerja.');
-                },
-                onFinish: () => setProcessing(false),
-            });
-            return;
-        }
-
-        setProcessing(false);
-    };
 
     return (
         <AuthenticatedLayout
@@ -597,7 +552,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                             const message =
                                                 data?.message ??
                                                 (response.status === 422
-                                                    ? 'Foto terlalu besar atau format tidak didukung (maks 2MB, JPG/PNG).'
+                                                    ? 'Foto terlalu besar atau format tidak didukung (maks 10MB, JPG/PNG/WebP).'
                                                     : 'Gagal mengunggah foto.');
                                             toast.error(message);
                                             throw new Error(message);
@@ -653,7 +608,8 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                         <Label>Foto Sebelum</Label>
                                         {isDraft ? (
                                             <DraftPhotoUpload
-                                                                                        label="Upload foto sebelum"
+                                                photoType="before"
+                                                label="Upload foto sebelum"
                                                 initialPhotos={(workReport.before_photos_data || []).map(toDraftPhoto)}
                                                 onPhotosChange={(photos) =>
                                                     setExistingBeforePhotos(photos.map(toExistingPhoto))
@@ -712,7 +668,8 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                         <Label>Foto Sesudah <span className="text-destructive">*</span></Label>
                                         {isDraft ? (
                                             <DraftPhotoUpload
-                                                                                        label="Upload foto sesudah"
+                                                photoType="after"
+                                                label="Upload foto sesudah"
                                                 initialPhotos={(workReport.after_photos_data || []).map(toDraftPhoto)}
                                                 onPhotosChange={(photos) =>
                                                     setExistingAfterPhotos(photos.map(toExistingPhoto))
@@ -798,15 +755,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                 <Save className="mr-2 size-4" />
                                 {processing ? 'Menyimpan...' : 'Simpan Draft'}
                             </Button>
-                            <Button
-                                type="button"
-                                className="w-full sm:w-auto"
-                                disabled={processing || state === 'saving'}
-                                onClick={(e) => void handleSubmit(e)}
-                            >
-                                <Send className="mr-2 size-4" />
-                                {processing ? 'Menyimpan...' : 'Submit'}
-                            </Button>
+
                         </div>
                     </div>
                 </form>

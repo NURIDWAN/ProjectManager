@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { ArrowLeft, Pencil, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { ContributorBadges, Contributor } from '@/Components/ContributorBadges';
 
 interface WorkReport {
     id: number;
@@ -28,6 +29,7 @@ interface WorkReport {
     client?: { id: number; name: string } | null;
     category?: { id: number; name: string } | null;
     technician?: { id: number; name: string } | null;
+    contributors?: Contributor[];
     before_photos_rel?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
     after_photos_rel?: { id: number; photo_path: string; caption: string | null; photo_url: string; sort_order: number }[];
 }
@@ -197,11 +199,12 @@ export default function Show({ workReport }: Props) {
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">
-                                    Teknisi
+                                    User Collaborator
                                 </p>
-                                <p className="text-sm">
-                                    {workReport.technician?.name || '-'}
-                                </p>
+                                <ContributorBadges
+                                    contributors={workReport.contributors}
+                                    fallback={workReport.technician}
+                                />
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">

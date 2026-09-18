@@ -14,6 +14,8 @@ interface AutosaveOptions {
     onDraftCreated?: (id: number) => void;
     /** Show a toast when a save fails. */
     onError?: (message: string) => void;
+    /** Existing report id when autosave is used from an edit form. */
+    initialReportId?: number | null;
 }
 
 interface AutosaveResult {
@@ -41,12 +43,13 @@ export function useWorkReportAutosave({
     buildPayload,
     onDraftCreated,
     onError,
-}: AutosaveOptions = {}): AutosaveResult {
+    initialReportId = null,
+}: AutosaveOptions = {}) {
     const [state, setState] = useState<SaveState>('idle');
     const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-    const [reportId, setReportId] = useState<number | null>(null);
+    const [reportId, setReportId] = useState<number | null>(initialReportId);
 
-    const reportIdRef = useRef<number | null>(null);
+    const reportIdRef = useRef<number | null>(initialReportId);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingRef = useRef(false);
     const inFlightRef = useRef(false);

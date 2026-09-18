@@ -35,7 +35,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Send, ClipboardList, Camera, UserRoundCog, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Save, ClipboardList, Camera, UserRoundCog, TriangleAlert } from 'lucide-react';
 import { useWorkReportAutosave } from '@/hooks/useWorkReportAutosave';
 
 interface Props {
@@ -105,10 +105,14 @@ export default function Create({ clients, categories, technicians }: Props) {
         document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 
     const uploadDraftPhoto = useCallback(
-        async (file: File, caption: string): Promise<DraftPhoto> => {
+        async (
+            file: File,
+            caption: string,
+            type: 'before' | 'after' = 'before',
+        ): Promise<DraftPhoto> => {
             const body = new FormData();
             body.append('photo', file);
-            body.append('type', 'before');
+            body.append('type', type);
             body.append('caption', caption);
 
             const response = await fetch(`/work-reports/${reportIdRef.current}/photos`, {
@@ -149,7 +153,11 @@ export default function Create({ clients, categories, technicians }: Props) {
 
     // Ensures the draft exists before a photo can be attached to it.
     const ensureDraftThenUpload = useCallback(
-        async (file: File, caption: string): Promise<DraftPhoto> => {
+        async (
+            file: File,
+            caption: string,
+            type: 'before' | 'after' = 'before',
+        ): Promise<DraftPhoto> => {
             if (reportIdRef.current === null) {
                 const ok = await flush();
                 if (!ok || reportIdRef.current === null) {
@@ -158,7 +166,7 @@ export default function Create({ clients, categories, technicians }: Props) {
                 }
             }
 
-            return uploadDraftPhoto(file, caption);
+            return uploadDraftPhoto(file, caption, type);
         },
         [flush, uploadDraftPhoto],
     );
@@ -214,50 +222,6 @@ export default function Create({ clients, categories, technicians }: Props) {
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setProcessing(true);
-        setErrors({});
-
-        // Client-side validation for submit
-        const validationErrors: Record<string, string> = {};
-        if (!clientId) validationErrors.client_id = 'Klien wajib dipilih.';
-        if (!categoryId) validationErrors.category_id = 'Kategori wajib dipilih.';
-        if (!description.trim()) validationErrors.description = 'Deskripsi wajib diisi.';
-        if (!area.trim()) validationErrors.area = 'Area wajib diisi.';
-        // AC category uses per-unit photos, so skip global after_photos requirement
-        if (!isAcCategory && afterPhotos.filter((p) => p.id > 0).length === 0) {
-            validationErrors.after_photos = 'Minimal satu foto sesudah harus di-upload.';
-        }
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            toast.error('Lengkapi data yang diperlukan sebelum submit.');
-            setProcessing(false);
-            return;
-        }
-
-        // Save first, then submit (report may not exist yet)
-        const saved = await flush();
-        if (!saved || reportIdRef.current === null) {
-            toast.error('Gagal menyiapkan laporan. Coba lagi.');
-            setProcessing(false);
-            return;
-        }
-
-        router.post(`/work-reports/${reportIdRef.current}/submit`, {}, {
-            onSuccess: () => {
-                toast.success('Laporan kerja berhasil disubmit.');
-            },
-            onError: (errs) => {
-                const errorMsg = Object.values(errs).flat().join(', ');
-                toast.error(errorMsg || 'Gagal submit laporan kerja.');
-            },
-            onFinish: () => {
-                setProcessing(false);
-            },
-        });
-    };
 
     return (
         <AuthenticatedLayout
@@ -458,8 +422,11 @@ export default function Create({ clients, categories, technicians }: Props) {
                                         <Label>Foto Sebelum</Label>
                                         <DraftPhotoUpload
                                             label="Upload foto sebelum"
+                                            photoType="before"
                                             onPhotosChange={setBeforePhotos}
-                                            uploadFile={ensureDraftThenUpload}
+                                            uploadFile={(file, caption) =>
+                                                ensureDraftThenUpload(file, caption, 'before')
+                                            }
                                             deletePhoto={deleteDraftPhoto}
                                             error={errors.before_photos}
                                         />
@@ -470,9 +437,10 @@ export default function Create({ clients, categories, technicians }: Props) {
                                         <Label>Foto Sesudah <span className="text-destructive">*</span></Label>
                                         <DraftPhotoUpload
                                             label="Upload foto sesudah"
+                                            photoType="after"
                                             onPhotosChange={setAfterPhotos}
                                             uploadFile={(file, caption) =>
-                                                ensureDraftThenUpload(file, caption).then((photo) => ({ ...photo, type: 'after' as const }))
+                                                ensureDraftThenUpload(file, caption, 'after')
                                             }
                                             deletePhoto={deleteDraftPhoto}
                                             error={errors.after_photos}
@@ -504,15 +472,7 @@ export default function Create({ clients, categories, technicians }: Props) {
                                 <Save className="mr-2 size-4" />
                                 {processing ? 'Menyimpan...' : 'Simpan Draft'}
                             </Button>
-                            <Button
-                                type="button"
-                                className="w-full sm:w-auto"
-                                disabled={processing || state === 'saving'}
-                                onClick={(e) => void handleSubmit(e)}
-                            >
-                                <Send className="mr-2 size-4" />
-                                {processing ? 'Menyimpan...' : 'Submit'}
-                            </Button>
+
                         </div>
                     </div>
                 </form>
