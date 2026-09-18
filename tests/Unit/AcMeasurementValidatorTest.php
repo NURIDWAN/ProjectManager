@@ -58,6 +58,17 @@ class AcMeasurementValidatorTest extends TestCase
         $this->assertNull($validated[0]['ampere_after_t']);
     }
 
+    public function test_accepts_requested_ac_brands(): void
+    {
+        foreach (['LG', 'Midea', 'Polytron', 'Tica', 'Changhong', 'Aqua', 'TCL', 'Sharp'] as $brand) {
+            $validated = app(AcMeasurementValidator::class)->validate([
+                $this->validEntry(['merek' => $brand]),
+            ]);
+
+            $this->assertSame($brand, $validated[0]['merek']);
+        }
+    }
+
     public function test_rejects_invalid_ampere_count(): void
     {
         $this->expectException(ValidationException::class);

@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
-import DeleteUserForm from './Partials/DeleteUserForm';
+
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import { PageHeader } from '@/Components/PageHeader';
@@ -31,9 +31,7 @@ export default function Edit({
                         <UpdatePasswordForm className="max-w-xl" />
                     </div>
 
-                    <div className="rounded-xl border border-destructive/20 bg-card p-5 shadow-xs sm:p-8">
-                        <DeleteUserForm className="max-w-xl" />
-                    </div>
+
             </div>
         </AuthenticatedLayout>
     );

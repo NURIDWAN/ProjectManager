@@ -101,6 +101,28 @@ class WorkReportAutosaveTest extends TestCase
         $this->assertEquals('dilanjutkan teknisi lain', $report->description);
         // Ownership stays with the original creator
         $this->assertEquals($this->otherTechnician->id, $report->technician_id);
+        $this->assertDatabaseHas('work_report_contributors', [
+            'work_report_id' => $report->id,
+            'user_id' => $this->otherTechnician->id,
+        ]);
+        $this->assertDatabaseHas('work_report_contributors', [
+            'work_report_id' => $report->id,
+            'user_id' => $this->technician->id,
+        ]);
+    }
+
+    public function test_repeated_autosave_by_collaborator_does_not_duplicate_contributor(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->otherTechnician->id,
+        ]);
+
+        $payload = ['id' => $report->id, 'description' => 'Perubahan kolaborator'];
+
+        $this->actingAs($this->technician)->postJson('/work-reports/autosave', $payload)->assertOk();
+        $this->actingAs($this->technician)->postJson('/work-reports/autosave', $payload)->assertOk();
+
+        $this->assertDatabaseCount('work_report_contributors', 2);
     }
 
     public function test_autosave_cannot_update_submitted_report(): void
@@ -237,6 +259,9 @@ class WorkReportAutosaveTest extends TestCase
         $this->assertEquals($report->id, $photo->work_report_id);
         $this->assertEquals('before', $photo->type);
         Storage::disk('public')->assertExists($photo->photo_path);
+        $storedPath = Storage::disk('public')->path($photo->photo_path);
+        $this->assertSame('image/webp', mime_content_type($storedPath));
+        $this->assertLessThanOrEqual(1024, max(getimagesize($storedPath)[0], getimagesize($storedPath)[1]));
 
         // Legacy JSON field is synced
         $report->refresh();

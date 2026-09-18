@@ -20,6 +20,7 @@ interface JobCategory {
     id: number;
     name: string;
     description: string | null;
+    preset_identifier: string | null;
     created_at: string;
 }
 
@@ -96,16 +97,18 @@ export default function JobCategoriesIndex({ categories, filters }: Props) {
                                 <Pencil className="mr-2 size-4" />
                                 Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => {
-                                    setSelectedCategory(category);
-                                    setDeleteModalOpen(true);
-                                }}
-                            >
-                                <Trash2 className="mr-2 size-4" />
-                                Hapus
-                            </DropdownMenuItem>
+                            {!category.preset_identifier && (
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={() => {
+                                        setSelectedCategory(category);
+                                        setDeleteModalOpen(true);
+                                    }}
+                                >
+                                    <Trash2 className="mr-2 size-4" />
+                                    Hapus
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 );

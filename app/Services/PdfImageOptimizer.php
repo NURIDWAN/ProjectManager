@@ -24,7 +24,7 @@ class PdfImageOptimizer implements PdfImageOptimizerInterface
 
         $isUploadCompressed = str_contains($sourcePath, '/compressed/')
             && (int) config('pdf.upload_images.max_dimension', 1024) <= (int) config('pdf.images.max_dimension', 1024)
-            && (int) config('pdf.upload_images.jpeg_quality', 55) <= (int) config('pdf.images.jpeg_quality', 55);
+            && (int) config('pdf.upload_images.webp_quality', 80) >= (int) config('pdf.images.jpeg_quality', 55);
         if ($isUploadCompressed) {
             return $sourceAbsolutePath;
         }

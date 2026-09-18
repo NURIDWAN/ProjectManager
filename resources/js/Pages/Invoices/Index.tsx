@@ -150,19 +150,7 @@ export default function Index({ invoices, clients, filters }: Props) {
             ),
             cell: ({ row }) => formatRupiah(row.original.grand_total),
         },
-        {
-            accessorKey: 'due_date',
-            header: 'Jatuh Tempo',
-            cell: ({ row }) =>
-                row.original.due_date
-                    ? new Date(row.original.due_date).toLocaleDateString('id-ID', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                      })
-                    : '-',
-            meta: { responsiveHidden: 'mobile' },
-        },
+
         {
             accessorKey: 'status',
             header: 'Status',
@@ -207,7 +195,7 @@ export default function Index({ invoices, clients, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <PageHeader title="Invoice" description="Pantau tagihan, jatuh tempo, dan pembayaran klien." actions={
+                <PageHeader title="Invoice" description="Pantau tagihan dan pembayaran klien." actions={
                     <Link href="/invoices/create">
                         <Button>
                             <Plus className="size-4" />

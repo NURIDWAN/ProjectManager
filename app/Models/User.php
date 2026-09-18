@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -63,6 +64,12 @@ class User extends Authenticatable
     public function workReports(): HasMany
     {
         return $this->hasMany(WorkReport::class, 'technician_id');
+    }
+
+    public function contributedWorkReports(): BelongsToMany
+    {
+        return $this->belongsToMany(WorkReport::class, 'work_report_contributors')
+            ->withTimestamps();
     }
 
     public function isAdmin(): bool

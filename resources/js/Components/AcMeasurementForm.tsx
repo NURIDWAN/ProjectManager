@@ -44,7 +44,7 @@ export interface AcMeasurementEntry {
 }
 
 export interface AcMeasurementFormProps {
-    uploadFile?: (file: File, caption: string) => Promise<any>;
+    uploadFile?: (file: File, caption: string, type?: 'before' | 'after') => Promise<any>;
     deletePhoto?: (photo: any) => Promise<void>;
     entries: AcMeasurementEntry[];
     onChange: (entries: AcMeasurementEntry[]) => void;
@@ -108,7 +108,19 @@ export const normalizeAcMeasurementEntry = (raw: Record<string, unknown>): AcMea
 };
 
 const TIPE_AC_OPTIONS = ['Splitduct', 'Cassette', 'Splitwall'] as const;
-const MEREK_OPTIONS = ['Panasonic', 'Gree', 'Daikin'] as const;
+const MEREK_OPTIONS = [
+    'Panasonic',
+    'Gree',
+    'Daikin',
+    'LG',
+    'Midea',
+    'Polytron',
+    'Tica',
+    'Changhong',
+    'Aqua',
+    'TCL',
+    'Sharp',
+] as const;
 
 const MIN_ENTRIES = 1;
 const MAX_ENTRIES = 50;
@@ -207,10 +219,10 @@ export default function AcMeasurementForm({
 
     const handlePhotoUpload = (entryIndex: number, type: 'before' | 'after', files: FileList | null) => {
         if (!files || !onPhotosChange) return;
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         const newItems: AcPhotoItem[] = [];
         Array.from(files).forEach((file) => {
-            if (validTypes.includes(file.type) && file.size <= 2 * 1024 * 1024) {
+            if (validTypes.includes(file.type) && file.size <= 10 * 1024 * 1024) {
                 newItems.push({ file, previewUrl: URL.createObjectURL(file), caption: '' });
             }
         });
@@ -738,7 +750,7 @@ function PhotoUploadArea({
     onRemove: (entryIndex: number, type: 'before' | 'after', photoIndex: number) => void;
     onRemoveExisting: (entryIndex: number, type: 'before' | 'after', photoId: number) => void;
     onCaptionChange: (entryIndex: number, type: 'before' | 'after', photoIndex: number, caption: string) => void;
-    uploadFile?: (file: File, caption: string) => Promise<any>;
+    uploadFile?: (file: File, caption: string, type?: 'before' | 'after') => Promise<any>;
     deletePhoto?: (photo: any) => Promise<void>;
     onAddExisting?: (photo: any) => void;
 }) {
@@ -761,11 +773,14 @@ function PhotoUploadArea({
                             <div className="aspect-square">
                                 <img src={photo.photo_url} alt="" className="size-full object-cover" />
                             </div>
-                            {photo.caption && (
-                                <div className="border-t bg-gray-50 px-2 py-1">
+                            <div className="border-t bg-gray-50 px-2 py-1">
+                                {photo.caption && (
                                     <p className="break-words text-center text-xs text-gray-600">{photo.caption}</p>
-                                </div>
-                            )}
+                                )}
+                                <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {type === 'before' ? 'Before' : 'After'}
+                                </p>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => onRemoveExisting(entryIndex, type, photo.id)}
@@ -796,6 +811,9 @@ function PhotoUploadArea({
                                     className="w-full min-w-0 rounded-md border-input bg-background px-2 py-2 text-base outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 sm:py-1 sm:text-xs"
                                     maxLength={255}
                                 />
+                                <p className="mt-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {type === 'before' ? 'Before' : 'After'}
+                                </p>
                             </div>
                             <button
                                 type="button"
@@ -836,7 +854,7 @@ function PhotoUploadArea({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
                 multiple
                 onChange={(e) => {
                     onUpload(entryIndex, type, e.target.files);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
+use App\Services\WorkReportImageStorageInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -14,6 +15,10 @@ use Inertia\Response;
 
 class ClientController extends Controller
 {
+    public function __construct(
+        private WorkReportImageStorageInterface $imageStorage,
+    ) {}
+
     /**
      * Display a listing of clients with search functionality.
      */
@@ -62,10 +67,11 @@ class ClientController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
-            $data['logo'] = $request->file('logo')->store('clients', 'public');
+            $data['logo'] = $this->imageStorage->storeCompressed($request->file('logo'), 'clients');
         }
 
-        Client::create($data);
+        $client = new Client($data);
+        $client->save();
 
         return Redirect::route('clients.index')
             ->with('success', 'Klien berhasil ditambahkan.');
@@ -94,7 +100,7 @@ class ClientController extends Controller
             if ($client->logo) {
                 Storage::disk('public')->delete($client->logo);
             }
-            $data['logo'] = $request->file('logo')->store('clients', 'public');
+            $data['logo'] = $this->imageStorage->storeCompressed($request->file('logo'), 'clients');
         }
 
         // Handle logo removal

@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @method static \Illuminate\Database\Eloquent\Builder<static> active()
+ */
 class Client extends Model
 {
     use HasFactory, SoftDeletes;
@@ -49,7 +53,10 @@ class Client extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    public function scopeActive($query)
+    /**
+     * @param Builder<Client> $query
+     */
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }

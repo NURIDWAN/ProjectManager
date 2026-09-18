@@ -40,7 +40,9 @@ class AuthenticatedSessionController extends Controller
             ? route('dashboard', absolute: false)
             : route('work-reports.index', absolute: false);
 
-        return redirect()->intended($redirectTo);
+        // Never reuse an intended URL that may belong to another role, such as
+        // /dashboard for technicians and staff.
+        return redirect($redirectTo);
     }
 
     /**

@@ -40,9 +40,10 @@ class WorkReportController extends Controller
      */
     private function authorizeOperatorAccess(WorkReport $workReport): void
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
-        if (! $user->isWorkReportOperator()) {
+        if ($user instanceof User && ! $user->isWorkReportOperator()) {
             return;
         }
 
@@ -60,6 +61,7 @@ class WorkReportController extends Controller
             'client:id,name',
             'category:id,name',
             'technician:id,name',
+            'contributors:id,name',
         ]);
 
         // Filter by status
@@ -84,7 +86,7 @@ class WorkReportController extends Controller
 
         return Inertia::render('WorkReports/Index', [
             'workReports' => $workReports,
-            'clients' => fn () => Client::select('id', 'name')->orderBy('name')->get(),
+            'clients' => fn () => Client::query()->select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'status' => $request->input('status', ''),
                 'client_id' => $request->input('client_id', ''),
@@ -101,8 +103,8 @@ class WorkReportController extends Controller
     {
         $user = Auth::user();
 
-        $clients = Client::active()->select('id', 'name')->orderBy('name')->get();
-        $categories = JobCategory::select('id', 'name', 'preset_identifier')->orderBy('name')->get();
+        $clients = Client::query()->where('is_active', true)->select('id', 'name')->orderBy('name')->get();
+        $categories = JobCategory::query()->select('id', 'name', 'preset_identifier')->orderBy('name')->get();
 
         // Validate preset identifiers against the registry and flag invalid ones
         $categories = $categories->map(function ($category) {
@@ -151,7 +153,7 @@ class WorkReportController extends Controller
             }
         }
 
-        $workReport = WorkReport::create([
+        $workReport = WorkReport::query()->create([
             'client_id' => $request->input('client_id'),
             'category_id' => $request->input('category_id'),
             'technician_id' => $user->id,
@@ -162,6 +164,7 @@ class WorkReportController extends Controller
             'before_photos' => $beforePhotos ?: null,
             'after_photos' => $afterPhotos ?: null,
         ]);
+        $this->recordWorkReportContributor($workReport, $user);
 
         // Save photos to work_report_photos table
         $beforeCaptions = $request->input('before_captions', []);
@@ -173,34 +176,12 @@ class WorkReportController extends Controller
         ];
 
         if ($photoRows !== []) {
-            WorkReportPhoto::insert($photoRows);
+            WorkReportPhoto::query()->insert($photoRows);
         }
 
         // Save per-unit AC photos
         $this->saveAcUnitPhotos($request, $workReport);
 
-        // If _submit flag is set, auto-submit the report
-        if ($request->input('_submit')) {
-            $hasAfterPhotos = $workReport->afterPhotoItems()->exists();
-            $category = $workReport->category;
-            $isAcPreset = $category && $category->preset_identifier === 'ac_maintenance';
-
-            // AC category uses per-unit photos, skip global after_photos requirement
-            $canSubmit = $workReport->client_id
-                && $workReport->category_id
-                && $workReport->description
-                && ($isAcPreset || $hasAfterPhotos);
-
-            if ($canSubmit) {
-                $workReport->update([
-                    'status' => WorkReport::STATUS_SUBMITTED,
-                    'submitted_at' => now(),
-                ]);
-
-                return Redirect::route('work-reports.index')
-                    ->with('success', 'Laporan kerja berhasil disimpan dan disubmit.');
-            }
-        }
 
         return Redirect::route('work-reports.index')
             ->with('success', 'Laporan kerja berhasil disimpan sebagai draft.');
@@ -213,7 +194,7 @@ class WorkReportController extends Controller
     {
         $this->authorizeOperatorAccess($work_report);
 
-        $work_report->load(['client', 'category', 'technician', 'beforePhotoItems', 'afterPhotoItems']);
+        $work_report->load(['client', 'category', 'technician', 'contributors:id,name', 'beforePhotoItems', 'afterPhotoItems']);
 
         // Append relational photo data for frontend
         $workReportData = $work_report->toArray();
@@ -236,6 +217,7 @@ class WorkReportController extends Controller
      */
     public function edit(WorkReport $work_report): Response|RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $this->authorizeOperatorAccess($work_report);
@@ -245,10 +227,10 @@ class WorkReportController extends Controller
             abort(403, 'Laporan yang sudah disubmit tidak dapat diubah.');
         }
 
-        $work_report->load(['beforePhotoItems', 'afterPhotoItems']);
+        $work_report->load(['contributors:id,name', 'beforePhotoItems', 'afterPhotoItems']);
 
-        $clients = Client::active()->select('id', 'name')->orderBy('name')->get();
-        $categories = JobCategory::select('id', 'name', 'preset_identifier')->orderBy('name')->get();
+        $clients = Client::query()->where('is_active', true)->select('id', 'name')->orderBy('name')->get();
+        $categories = JobCategory::query()->select('id', 'name', 'preset_identifier')->orderBy('name')->get();
 
         // Validate preset identifiers against the registry and flag invalid ones
         $categories = $categories->map(function ($category) {
@@ -282,6 +264,7 @@ class WorkReportController extends Controller
      */
     public function update(StoreWorkReportRequest $request, WorkReport $work_report): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $this->authorizeOperatorAccess($work_report);
@@ -375,6 +358,7 @@ class WorkReportController extends Controller
             'before_photos' => $allBefore ?: null,
             'after_photos' => $allAfter ?: null,
         ]);
+        $this->recordWorkReportContributor($work_report, $user);
 
         // Handle per-unit AC photos for update
         $this->saveAcUnitPhotos($request, $work_report, true);
@@ -388,6 +372,7 @@ class WorkReportController extends Controller
      */
     public function destroy(WorkReport $work_report): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $this->authorizeOperatorAccess($work_report);
@@ -415,6 +400,8 @@ class WorkReportController extends Controller
     /**
      * Submit a draft work report.
      * Validates that required fields are filled for submission.
+     *
+     * @param int|string $id
      */
     public function submit(Request $request, $id): RedirectResponse
     {
@@ -541,6 +528,7 @@ class WorkReportController extends Controller
         }
 
         $workReport->save();
+        $this->recordWorkReportContributor($workReport, $user);
 
         // Sync captions of uploaded draft photos (photo_id => caption)
         if ($request->filled('photo_captions')) {
@@ -641,14 +629,14 @@ class WorkReportController extends Controller
         }
 
         $validated = $request->validate([
-            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'type' => ['required', 'in:before,after'],
             'unit_index' => ['nullable', 'integer', 'min:0', 'max:1000'],
             'caption' => ['nullable', 'string', 'max:255'],
         ], [
             'photo.required' => 'Foto wajib dipilih.',
-            'photo.mimes' => 'Format foto harus JPG, JPEG, atau PNG.',
-            'photo.max' => 'Ukuran file maksimal 2MB.',
+            'photo.mimes' => 'Format foto harus JPG, JPEG, PNG, atau WebP.',
+            'photo.max' => 'Ukuran file maksimal 10MB.',
             'type.required' => 'Tipe foto wajib dipilih.',
         ]);
 
@@ -665,6 +653,7 @@ class WorkReportController extends Controller
             'sort_order' => $unitIndex !== null ? $unitIndex : 0,
         ]);
         $photo->save();
+        $this->recordWorkReportContributor($work_report, $user);
 
         $this->syncLegacyPhotoFields($work_report);
 
@@ -702,6 +691,20 @@ class WorkReportController extends Controller
     }
 
     /**
+     * Ensure the original owner and the active editor are represented.
+     * This also repairs legacy reports created before the pivot existed.
+     */
+    private function recordWorkReportContributor(WorkReport $workReport, User $user): void
+    {
+        $userIds = array_filter([
+            $workReport->technician_id,
+            $user->id,
+        ]);
+
+        $workReport->contributors()->syncWithoutDetaching($userIds);
+    }
+
+    /**
      * Sync the legacy JSON photo columns (before_photos / after_photos) from
      * the relational work_report_photos table.
      */
@@ -736,6 +739,11 @@ class WorkReportController extends Controller
     /**
      * Build rows for a bulk photo insert.
      */
+    /**
+     * @param array<int, string> $paths
+     * @param array<int, string|null> $captions
+     * @return array<int, array<string, mixed>>
+     */
     private function buildPhotoRows(
         int $workReportId,
         string $type,
@@ -766,6 +774,8 @@ class WorkReportController extends Controller
 
     /**
      * Build a row for a per-unit AC photo bulk insert.
+     *
+     * @return array<string, mixed>
      */
     private function buildAcPhotoRow(
         WorkReport $workReport,
@@ -805,6 +815,8 @@ class WorkReportController extends Controller
 
     /**
      * Delete photo files from storage.
+     *
+     * @param array<int, string> $photos
      */
     private function deletePhotos(array $photos): void
     {

@@ -85,6 +85,11 @@ class JobCategoryController extends Controller
      */
     public function destroy(JobCategory $jobCategory)
     {
+        if ($jobCategory->isSystemManaged()) {
+            return redirect()->route('job-categories.index')
+                ->with('error', 'Kategori sistem tidak dapat dihapus.');
+        }
+
         // Protect deletion if category is still used in work_reports
         if ($jobCategory->workReports()->exists()) {
             return redirect()->route('job-categories.index')

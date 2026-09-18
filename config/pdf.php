@@ -29,6 +29,6 @@ return [
     ],
     'upload_images' => [
         'max_dimension' => env('WORK_REPORT_IMAGE_MAX_DIMENSION', 1024),
-        'jpeg_quality' => env('WORK_REPORT_IMAGE_JPEG_QUALITY', 55),
+        'webp_quality' => env('WORK_REPORT_IMAGE_WEBP_QUALITY', 80),
     ],
 ];

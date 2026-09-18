@@ -90,6 +90,20 @@ class JobCategoryControllerTest extends TestCase
         $this->assertDatabaseMissing('job_categories', ['id' => $category->id]);
     }
 
+    public function test_admin_cannot_delete_system_managed_job_category(): void
+    {
+        $category = JobCategory::factory()->create([
+            'name' => 'Maintenance AC',
+            'preset_identifier' => 'ac_maintenance',
+        ]);
+
+        $response = $this->actingAs($this->admin)->delete("/job-categories/{$category->id}");
+
+        $response->assertRedirect(route('job-categories.index'));
+        $response->assertSessionHas('error', 'Kategori sistem tidak dapat dihapus.');
+        $this->assertDatabaseHas('job_categories', ['id' => $category->id]);
+    }
+
     public function test_admin_cannot_delete_job_category_used_in_work_reports(): void
     {
         $category = JobCategory::factory()->create();
