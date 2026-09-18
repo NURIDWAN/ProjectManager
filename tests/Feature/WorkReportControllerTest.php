@@ -281,6 +281,30 @@ class WorkReportControllerTest extends TestCase
         ]);
     }
 
+    public function test_ac_photo_upload_preserves_after_type(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'client_id' => $this->client->id,
+            'category_id' => $this->category->id,
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+
+        $response = $this->actingAs($this->technician)->postJson("/work-reports/{$report->id}/photos", [
+            'photo' => UploadedFile::fake()->image('after.jpg', 800, 600),
+            'type' => 'after',
+            'unit_index' => 0,
+            'caption' => 'After unit 1',
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('work_report_photos', [
+            'work_report_id' => $report->id,
+            'type' => WorkReportPhoto::TYPE_AFTER,
+            'caption' => 'ac_unit_0:After unit 1',
+        ]);
+    }
+
     public function test_store_with_photo_upload(): void
     {
         $photo = UploadedFile::fake()->image('before.jpg', 800, 600)->size(1024);

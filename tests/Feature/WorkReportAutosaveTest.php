@@ -81,6 +81,62 @@ class WorkReportAutosaveTest extends TestCase
         $this->assertCount(1, WorkReport::all());
     }
 
+    public function test_autosave_removes_photos_marked_as_deleted(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+        Storage::disk('public')->put('work-reports/removed.jpg', 'image');
+        $photo = WorkReportPhoto::create([
+            'work_report_id' => $report->id,
+            'type' => WorkReportPhoto::TYPE_AFTER,
+            'photo_path' => 'work-reports/removed.jpg',
+            'caption' => 'Foto yang dihapus',
+            'sort_order' => 0,
+        ]);
+
+        $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
+            'id' => $report->id,
+            'existing_before_photos' => [],
+            'existing_after_photos' => [],
+            'deleted_photo_ids' => [$photo->id],
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseMissing('work_report_photos', ['id' => $photo->id]);
+        Storage::disk('public')->assertMissing('work-reports/removed.jpg');
+    }
+
+    public function test_explicit_photo_deletion_wins_over_keep_lists_and_ac_caption(): void
+    {
+        $report = WorkReport::factory()->create([
+            'technician_id' => $this->technician->id,
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+        Storage::disk('public')->put('work-reports/ac-removed.jpg', 'image');
+        $photo = WorkReportPhoto::create([
+            'work_report_id' => $report->id,
+            'type' => WorkReportPhoto::TYPE_AFTER,
+            'photo_path' => 'work-reports/ac-removed.jpg',
+            'caption' => 'ac_unit_0:Sesudah',
+            'sort_order' => 0,
+        ]);
+
+        $response = $this->actingAs($this->technician)->postJson('/work-reports/autosave', [
+            'id' => $report->id,
+            // Simulates a stale client keep-list arriving with the tombstone.
+            'existing_after_photos' => [$photo->id],
+            'photo_captions' => [(string) $photo->id => 'Sesudah'],
+            'ac_photo_remap' => [(string) $photo->id => 0],
+            'deleted_photo_ids' => [$photo->id],
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseMissing('work_report_photos', ['id' => $photo->id]);
+        Storage::disk('public')->assertMissing('work-reports/ac-removed.jpg');
+    }
+
     // === AUTOSAVE: AUTHORIZATION ===
 
     public function test_any_operator_can_collaborate_on_other_technicians_draft(): void

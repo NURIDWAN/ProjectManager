@@ -41,6 +41,8 @@ class AutoSaveWorkReportRequest extends FormRequest
             'existing_after_photos' => ['nullable', 'array'],
             'existing_before_photos.*' => ['integer'],
             'existing_after_photos.*' => ['integer'],
+            'deleted_photo_ids' => ['nullable', 'array'],
+            'deleted_photo_ids.*' => ['integer', 'min:1'],
         ];
     }
 

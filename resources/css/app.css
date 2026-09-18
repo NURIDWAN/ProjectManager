@@ -150,6 +150,26 @@
   textarea {
     @apply transition-colors duration-150;
   }
+
+  input,
+  select,
+  textarea {
+    color: var(--foreground);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    color: var(--foreground);
+    opacity: 1;
+    -webkit-text-fill-color: var(--foreground);
+  }
 }
 
 @layer components {

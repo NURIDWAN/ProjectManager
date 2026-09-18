@@ -530,6 +530,24 @@ class WorkReportController extends Controller
         $workReport->save();
         $this->recordWorkReportContributor($workReport, $user);
 
+        // Delete photos explicitly removed in the editor. The client also sends
+        // keep lists, but this explicit tombstone list prevents a delayed
+        // delete request from resurrecting a photo on the next edit.
+        $deletedPhotoIds = array_values(array_filter(
+            array_map('intval', (array) $request->input('deleted_photo_ids', [])),
+            fn (int $id): bool => $id > 0,
+        ));
+        if ($deletedPhotoIds !== []) {
+            $photosToDelete = $workReport->photos()
+                ->whereIn('id', $deletedPhotoIds)
+                ->get();
+
+            foreach ($photosToDelete as $photo) {
+                $this->deleteStoredPhoto($photo->photo_path);
+                $photo->delete();
+            }
+        }
+
         // Sync captions of uploaded draft photos (photo_id => caption)
         if ($request->filled('photo_captions')) {
             $captions = (array) $request->input('photo_captions');
@@ -572,12 +590,18 @@ class WorkReportController extends Controller
             }
         }
 
-        // Remove draft photos that the user deleted from the form
+        // Remove draft photos that are absent from the form. Explicit tombstones
+        // always win over keep-lists, including when a stale client payload
+        // contains the deleted ID in both places.
         $existingBefore = $request->input('existing_before_photos');
         $existingAfter = $request->input('existing_after_photos');
         if (is_array($existingBefore) || is_array($existingAfter)) {
-            $keepBefore = is_array($existingBefore) ? array_map('intval', $existingBefore) : null;
-            $keepAfter = is_array($existingAfter) ? array_map('intval', $existingAfter) : null;
+            $keepBefore = is_array($existingBefore)
+                ? array_values(array_diff(array_map('intval', $existingBefore), $deletedPhotoIds))
+                : null;
+            $keepAfter = is_array($existingAfter)
+                ? array_values(array_diff(array_map('intval', $existingAfter), $deletedPhotoIds))
+                : null;
 
             $photosToRemove = $workReport->photos()
                 ->where(function ($query) {

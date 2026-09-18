@@ -138,6 +138,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
     const [existingAfterPhotos, setExistingAfterPhotos] = useState<ExistingPhoto[]>(
         workReport.after_photos_data || []
     );
+    const deletedPhotoIdsRef = useRef<number[]>([]);
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -222,6 +223,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
             ac_photo_remap: acPhotoRemap,
             existing_before_photos: existingBeforePhotos.map((p) => p.id),
             existing_after_photos: existingAfterPhotos.map((p) => p.id),
+            deleted_photo_ids: deletedPhotoIdsRef.current,
         };
     }, [isDraft, clientId, categoryId, description, area, presetData, selectedCategoryIsAc, existingBeforePhotos, existingAfterPhotos, acPhotos]);
 
@@ -292,6 +294,12 @@ export default function Edit({ workReport, clients, categories }: Props) {
 
     // === Existing photo operations (server-synced for drafts) ===
 
+    const markPhotoDeleted = (id: number) => {
+        if (id <= 0 || deletedPhotoIdsRef.current.includes(id)) return;
+        deletedPhotoIdsRef.current = [...deletedPhotoIdsRef.current, id];
+        touch();
+    };
+
     const removeExistingPhoto = async (list: 'before' | 'after', id: number) => {
         const photo = (list === 'before' ? existingBeforePhotos : existingAfterPhotos)
             .find((p) => p.id === id);
@@ -299,6 +307,10 @@ export default function Edit({ workReport, clients, categories }: Props) {
             setExistingBeforePhotos((prev) => prev.filter((p) => p.id !== id));
         } else {
             setExistingAfterPhotos((prev) => prev.filter((p) => p.id !== id));
+        }
+
+        if (photo) {
+            markPhotoDeleted(id);
         }
 
         if (isDraft && photo) {
@@ -530,11 +542,26 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                     errors={errors}
                                     disabled={!isDraft || !isDetailComplete}
                                     photos={acPhotos}
-                                    onPhotosChange={(photos) => { setAcPhotos(photos as AcEntryPhotosWithIds[]); touch(); }}
-                                    uploadFile={async (file, caption) => {
+                                    onPhotosChange={(photos) => {
+                                        const nextPhotos = photos as AcEntryPhotosWithIds[];
+                                        const nextIds = new Set(
+                                            nextPhotos.flatMap((entry) => [
+                                                ...entry.existingBefore.map((photo) => photo.id),
+                                                ...entry.existingAfter.map((photo) => photo.id),
+                                            ]),
+                                        );
+                                        acPhotos.forEach((entry) => {
+                                            [...entry.existingBefore, ...entry.existingAfter].forEach((photo) => {
+                                                if (!nextIds.has(photo.id)) markPhotoDeleted(photo.id);
+                                            });
+                                        });
+                                        setAcPhotos(nextPhotos);
+                                        touch();
+                                    }}
+                                    uploadFile={async (file, caption, type = 'before') => {
                                         const body = new FormData();
                                         body.append("photo", file);
-                                        body.append("type", "before"); // type is handled by caption format ac_unit_{idx}
+                                        body.append("type", type);
                                         body.append("caption", caption);
                                         const response = await fetch(`/work-reports/${workReport.id}/photos`, {
                                             method: "POST",
@@ -560,6 +587,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                         return await response.json();
                                     }}
                                     deletePhoto={async (photo) => {
+                                        markPhotoDeleted(photo.id);
                                         await fetch(`/work-reports/${workReport.id}/photos/${photo.id}`, {
                                             method: "DELETE",
                                             headers: {
@@ -611,9 +639,10 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                                 photoType="before"
                                                 label="Upload foto sebelum"
                                                 initialPhotos={(workReport.before_photos_data || []).map(toDraftPhoto)}
-                                                onPhotosChange={(photos) =>
-                                                    setExistingBeforePhotos(photos.map(toExistingPhoto))
-                                                }
+                                                onPhotosChange={(photos) => {
+                                                    setExistingBeforePhotos(photos.map(toExistingPhoto));
+                                                    touch();
+                                                }}
                                                 uploadFile={async (file, caption) => {
                                                     const body = new FormData();
                                                     body.append('photo', file);
@@ -646,6 +675,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                                     return (await response.json()) as DraftPhoto;
                                                 }}
                                                 deletePhoto={async (photo) => {
+                                                    markPhotoDeleted(photo.id);
                                                     await fetch(`/work-reports/${workReport.id}/photos/${photo.id}`, {
                                                         method: 'DELETE',
                                                         headers: {
@@ -671,9 +701,10 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                                 photoType="after"
                                                 label="Upload foto sesudah"
                                                 initialPhotos={(workReport.after_photos_data || []).map(toDraftPhoto)}
-                                                onPhotosChange={(photos) =>
-                                                    setExistingAfterPhotos(photos.map(toExistingPhoto))
-                                                }
+                                                onPhotosChange={(photos) => {
+                                                    setExistingAfterPhotos(photos.map(toExistingPhoto));
+                                                    touch();
+                                                }}
                                                 uploadFile={async (file, caption) => {
                                                     const body = new FormData();
                                                     body.append('photo', file);
@@ -706,6 +737,7 @@ export default function Edit({ workReport, clients, categories }: Props) {
                                                     return (await response.json()) as DraftPhoto;
                                                 }}
                                                 deletePhoto={async (photo) => {
+                                                    markPhotoDeleted(photo.id);
                                                     await fetch(`/work-reports/${workReport.id}/photos/${photo.id}`, {
                                                         method: 'DELETE',
                                                         headers: {

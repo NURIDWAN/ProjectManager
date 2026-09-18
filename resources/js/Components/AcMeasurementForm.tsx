@@ -274,10 +274,10 @@ export default function AcMeasurementForm({
     };
 
     const inputClassName =
-        'h-11 w-full min-w-0 rounded-md border-input bg-background px-3 text-base shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted sm:h-10 sm:text-sm';
+        'h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-foreground disabled:opacity-100 sm:h-10 sm:text-sm';
 
     const selectClassName =
-        'h-11 w-full min-w-0 rounded-md border-input bg-background px-3 text-base shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted sm:h-10 sm:text-sm';
+        'h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground shadow-xs outline-none focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-foreground disabled:opacity-100 sm:h-10 sm:text-sm';
 
     return (
         <div className="min-w-0 space-y-6">

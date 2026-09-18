@@ -267,11 +267,14 @@ export default function Create({ clients, categories, technicians }: Props) {
                             {/* Klien */}
                             <div className="space-y-2">
                                 <Label htmlFor="client_id">Klien <span className="text-destructive">*</span></Label>
-                                <Select value={clientId} onValueChange={(v) => { setClientId(v ?? ''); touch(); }} items={Object.fromEntries(clients.map(c => [String(c.id), c.name]))}>
+                                <Select value={clientId || '__empty_client__'} onValueChange={(value) => { if (value !== '__empty_client__') { setClientId(value ?? ''); touch(); } }} items={{ __empty_client__: 'Pilih klien', ...Object.fromEntries(clients.map(c => [String(c.id), c.name])) }}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih klien" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="__empty_client__" disabled label="Pilih klien">
+                                            Pilih klien
+                                        </SelectItem>
                                         {clients.map((client) => (
                                             <SelectItem
                                                 key={client.id}
@@ -291,11 +294,14 @@ export default function Create({ clients, categories, technicians }: Props) {
                             {/* Kategori */}
                             <div className="space-y-2">
                                 <Label htmlFor="category_id">Kategori Pekerjaan <span className="text-destructive">*</span></Label>
-                                <Select value={categoryId} onValueChange={handleCategoryChange} items={Object.fromEntries(categories.map(c => [String(c.id), c.name]))}>
+                                <Select value={categoryId || '__empty_category__'} onValueChange={(value) => { if (value !== '__empty_category__') handleCategoryChange(value); }} items={{ __empty_category__: 'Pilih kategori', ...Object.fromEntries(categories.map(c => [String(c.id), c.name])) }}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Pilih kategori" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="__empty_category__" disabled label="Pilih kategori">
+                                            Pilih kategori
+                                        </SelectItem>
                                         {categories.map((cat) => (
                                             <SelectItem
                                                 key={cat.id}

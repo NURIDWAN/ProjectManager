@@ -119,13 +119,17 @@ export function DraftPhotoUpload({
 
     const removePhoto = useCallback(
         async (photo: DraftPhoto) => {
-            updateList((prev) => prev.filter((p) => p.id !== photo.id));
-
+            // Notify the parent before changing the visible list. The parent
+            // records the deletion tombstone here, so an immediate manual save
+            // cannot submit a stale keep-list without the deleted ID.
             try {
                 await deletePhoto(photo);
             } catch {
-                // Photo row stays on the server; it will be cleaned up on submit.
+                // Photo row stays on the server; the parent tombstone is still
+                // sent with autosave so it is removed on the next save.
             }
+
+            updateList((prev) => prev.filter((p) => p.id !== photo.id));
 
             if (photo.uploading) {
                 URL.revokeObjectURL(photo.photo_url);
