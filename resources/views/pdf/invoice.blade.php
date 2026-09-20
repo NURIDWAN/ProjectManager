@@ -103,8 +103,8 @@
         /* Client Box */
         .client-box {
             padding: 8px 10px;
-            border-left: 3px solid #6b9e3a;
-            /* background-color: #f0f7e8; */
+            border-left: 3px solid #6b7280;
+
         }
 
         .client-box .label {
@@ -133,14 +133,13 @@
         }
 
         .items-table th {
-            background-color: #6b9e3a;
+            background-color: #6b7280;
             color: #fff;
             font-weight: bold;
             text-align: center;
             font-size: 10px;
-            text-transform: uppercase;
             padding: 8px 6px;
-            border: 1px solid #5a8a30;
+            border: 1px solid #4b5563;
         }
 
         .items-table td {
@@ -220,8 +219,8 @@
         .totals-table .grand-total td {
             font-weight: bold;
             font-size: 12px;
-            background-color: #f0f7e8;
-            border-top: 2px solid #6b9e3a;
+            background-color: #f3f4f6;
+            border-top: 2px solid #6b7280;
         }
 
         /* Payment Info */
@@ -372,7 +371,7 @@
         <thead>
             <tr>
                 <th style="width: 6%;">No</th>
-                <th style="width: 39%;">Deskripsi</th>
+                <th style="width: 39%;">Product</th>
                 <th style="width: 10%;">Jml</th>
                 <th style="width: 22%;">Harga Satuan</th>
                 <th style="width: 23%;">Sub Total</th>

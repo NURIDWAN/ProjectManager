@@ -359,9 +359,9 @@ export default function Create({ clients, baps, services, settings }: Props) {
                             <div className="hidden sm:block">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-emerald-600 text-white text-xs">
+                                        <tr className="bg-gray-600 text-white text-xs">
                                             <th className="px-3 py-2 text-center font-semibold w-[48px] rounded-tl">No</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Barang</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Product</th>
                                             <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
                                             <th className="px-3 py-2 text-right font-semibold w-[120px]">Harga Satuan</th>
                                             <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
@@ -375,15 +375,15 @@ export default function Create({ clients, baps, services, settings }: Props) {
                                                     {index + 1}
                                                 </td>
                                                 <td className="py-2 pr-2">
-                                                    <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input barang manual']])}>
+                                                    <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input product manual']])}>
                                                         <SelectTrigger className="w-full border-0 shadow-none h-8 text-sm bg-transparent hover:bg-gray-50">
-                                                            <SelectValue placeholder="Pilih barang" />
+                                                            <SelectValue placeholder="Pilih product" />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {services.map((svc) => (
                                                                 <SelectItem key={svc.id} value={String(svc.id)} label={svc.name}>{svc.name}</SelectItem>
                                                             ))}
-                                                            <SelectItem value="manual" label="+ Input barang manual">+ Input barang manual</SelectItem>
+                                                            <SelectItem value="manual" label="+ Input product manual">+ Input product manual</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     {item.source === 'manual' && (
@@ -392,7 +392,7 @@ export default function Create({ clients, baps, services, settings }: Props) {
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <Input value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} placeholder="Satuan (unit, paket...)" className="h-8 bg-white text-sm" />
                                                                 <select value={item.manual_type} onChange={(e) => handleItemChange(index, 'manual_type', e.target.value)} className="h-8 rounded-md border border-input bg-white px-2 text-sm">
-                                                                    <option value="product">Barang</option>
+                                                                    <option value="product">Product</option>
                                                                     <option value="service">Jasa</option>
                                                                 </select>
                                                             </div>
@@ -445,15 +445,15 @@ export default function Create({ clients, baps, services, settings }: Props) {
                                         <div className="flex items-center justify-between gap-2">
                                             <span className="text-sm font-semibold text-gray-500 shrink-0">No. {index + 1}</span>
                                             <div className="flex-1 min-w-0">
-                                                <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input barang manual']])}>
+                                                <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input product manual']])}>
                                                     <SelectTrigger className="w-full h-8 text-sm border-dashed">
-                                                        <SelectValue placeholder="Pilih barang" />
+                                                        <SelectValue placeholder="Pilih product" />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {services.map((svc) => (
                                                             <SelectItem key={svc.id} value={String(svc.id)} label={svc.name}>{svc.name}</SelectItem>
                                                         ))}
-                                                        <SelectItem value="manual" label="+ Input barang manual">+ Input barang manual</SelectItem>
+                                                        <SelectItem value="manual" label="+ Input product manual">+ Input product manual</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -468,7 +468,7 @@ export default function Create({ clients, baps, services, settings }: Props) {
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <Input value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} placeholder="Satuan" className="h-8 bg-white text-sm" />
                                                     <select value={item.manual_type} onChange={(e) => handleItemChange(index, 'manual_type', e.target.value)} className="h-8 rounded-md border border-input bg-white px-2 text-sm">
-                                                        <option value="product">Barang</option>
+                                                        <option value="product">Product</option>
                                                         <option value="service">Jasa</option>
                                                     </select>
                                                 </div>
