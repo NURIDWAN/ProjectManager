@@ -9,6 +9,7 @@ use App\Models\CompanySetting;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
+use App\Models\WorkReport;
 use App\Services\InvoiceCalculationServiceInterface;
 use App\Services\InvoiceNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;

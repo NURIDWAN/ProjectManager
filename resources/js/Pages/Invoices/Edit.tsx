@@ -375,24 +375,24 @@ export default function Edit({ invoice, clients, services, settings }: Props) {
                                                 {index + 1}
                                             </td>
                                             <td className="py-2 pr-2">
-                                                <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input barang manual']])}>
+                                                <Select value={item.source === 'manual' ? 'manual' : (item.service_id ? String(item.service_id) : undefined)} onValueChange={(v) => handleServiceChange(index, v ?? '')} items={Object.fromEntries([...services.map(s => [String(s.id), s.name]), ['manual', '+ Input product manual']])}>
                                                     <SelectTrigger className="w-full border-0 shadow-none h-8 text-sm bg-transparent hover:bg-gray-50">
-                                                        <SelectValue placeholder="Pilih barang" />
+                                                        <SelectValue placeholder="Pilih product" />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {services.map((svc) => (
                                                             <SelectItem key={svc.id} value={String(svc.id)} label={svc.name}>{svc.name}</SelectItem>
                                                         ))}
-                                                        <SelectItem value="manual" label="+ Input barang manual">+ Input barang manual</SelectItem>
+                                                        <SelectItem value="manual" label="+ Input product manual">+ Input product manual</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 {item.source === 'manual' && (
                                                     <div className="mt-2 space-y-2 rounded-md border border-dashed bg-gray-50 p-2">
-                                                        <Input value={item.service_name} onChange={(e) => handleItemChange(index, 'service_name', e.target.value)} placeholder="Nama barang/jasa" className="h-8 bg-white text-sm" />
+                                                        <Input value={item.service_name} onChange={(e) => handleItemChange(index, 'service_name', e.target.value)} placeholder="Nama product/jasa" className="h-8 bg-white text-sm" />
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <Input value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} placeholder="Satuan (unit, paket...)" className="h-8 bg-white text-sm" />
                                                             <select value={item.manual_type} onChange={(e) => handleItemChange(index, 'manual_type', e.target.value)} className="h-8 rounded-md border border-input bg-white px-2 text-sm">
-                                                                <option value="product">Barang</option>
+                                                                <option value="product">Product</option>
                                                                 <option value="service">Jasa</option>
                                                             </select>
                                                         </div>
