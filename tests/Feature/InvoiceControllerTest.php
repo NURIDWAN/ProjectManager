@@ -197,6 +197,24 @@ class InvoiceControllerTest extends TestCase
         $this->assertNotEquals(403, $response->getStatusCode());
     }
 
+    public function test_create_does_not_show_bap_with_paid_invoice(): void
+    {
+        Invoice::factory()->paid()->create([
+            'bap_id' => $this->approvedBap->id,
+            'client_id' => $this->client->id,
+        ]);
+
+        $response = $this->actingAs($this->admin)->get('/invoices/create');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Invoices/Create')
+            ->where('baps', fn ($baps) => collect($baps)->doesntContain(
+                fn ($bap) => (int) data_get($bap, 'id') === (int) $this->approvedBap->id
+            ))
+        );
+    }
+
     public function test_create_auto_populates_items_when_bap_id_provided(): void
     {
         $response = $this->actingAs($this->admin)->get('/invoices/create?bap_id='.$this->approvedBap->id);
@@ -560,7 +578,7 @@ class InvoiceControllerTest extends TestCase
         $this->assertEquals($dueDate, $invoice->due_date->format('Y-m-d'));
     }
 
-    public function test_issuing_invoice_deletes_bap_work_reports_but_keeps_bap_and_invoice(): void
+    public function test_issuing_invoice_keeps_bap_and_work_reports(): void
     {
         $workReport = WorkReport::factory()->submitted()->create([
             'client_id' => $this->client->id,
@@ -583,7 +601,7 @@ class InvoiceControllerTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('work_reports', ['id' => $workReport->id]);
+        $this->assertDatabaseHas('work_reports', ['id' => $workReport->id]);
         $this->assertDatabaseHas('baps', ['id' => $bap->id]);
         $this->assertDatabaseHas('invoices', [
             'id' => $invoice->id,

@@ -9,7 +9,6 @@ use App\Models\CompanySetting;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
-use App\Models\WorkReport;
 use App\Services\InvoiceCalculationServiceInterface;
 use App\Services\InvoiceNumberGeneratorInterface;
 use App\Services\PdfExportServiceInterface;
@@ -20,7 +19,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -309,8 +307,6 @@ class InvoiceController extends Controller
         ]);
 
         DB::transaction(function () use ($invoice, $request): void {
-            $this->deleteBapWorkReports($invoice);
-
             $invoice->update([
                 'status' => Invoice::STATUS_UNPAID,
                 'due_date' => $request->input('due_date'),
@@ -318,47 +314,7 @@ class InvoiceController extends Controller
         });
 
         return Redirect::route('invoices.show', $invoice->id)
-            ->with('success', 'Invoice diterbitkan. Laporan harian dari BAP telah dihapus dan BAP tetap disimpan.');
-    }
-
-    /**
-     * Delete the daily reports represented by an invoice's BAP after issuance.
-     * The BAP and invoice are intentionally preserved as historical documents.
-     */
-    private function deleteBapWorkReports(Invoice $invoice): void
-    {
-        if (! $invoice->bap_id) {
-            return;
-        }
-
-        $reportIds = array_values(array_filter($invoice->bap?->work_report_ids ?? [], 'is_numeric'));
-        if ($reportIds === []) {
-            return;
-        }
-
-        $reports = WorkReport::with('photos')
-            ->whereIn('id', $reportIds)
-            ->get();
-
-        foreach ($reports as $report) {
-            foreach ($report->photos as $photo) {
-                $this->deleteReportPhotoFile($photo->photo_path);
-            }
-
-            foreach ([...($report->before_photos ?? []), ...($report->after_photos ?? [])] as $path) {
-                if (is_string($path) && $path !== '') {
-                    $this->deleteReportPhotoFile($path);
-                }
-            }
-            $report->contributors()->detach();
-            $report->delete();
-        }
-    }
-
-    private function deleteReportPhotoFile(string $path): void
-    {
-        $this->pdfImageOptimizer->deleteDerivatives($path);
-        Storage::disk('public')->delete($path);
+            ->with('success', 'Invoice diterbitkan. BAP dan laporan kerja tetap disimpan.');
     }
 
     /**

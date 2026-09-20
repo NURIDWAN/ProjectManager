@@ -359,9 +359,9 @@ export default function Create({ clients, baps, services, settings }: Props) {
                             <div className="hidden sm:block">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-emerald-600 text-white text-xs">
+                                        <tr className="bg-gray-600 text-white text-xs">
                                             <th className="px-3 py-2 text-center font-semibold w-[48px] rounded-tl">No</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Barang</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Product</th>
                                             <th className="px-3 py-2 text-center font-semibold w-[70px]">Kuantitas</th>
                                             <th className="px-3 py-2 text-right font-semibold w-[120px]">Harga Satuan</th>
                                             <th className="px-3 py-2 text-right font-semibold w-[140px] rounded-tr">Jumlah</th>
