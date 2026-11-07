@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Bap;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\JobCategory;
 use App\Models\WorkReport;
 use App\Services\DashboardAggregationService;
 use App\Services\DashboardAggregationServiceInterface;
@@ -278,6 +279,129 @@ class DashboardAggregationServiceTest extends TestCase
         sort($sorted);
 
         $this->assertEquals($sorted, $months);
+    }
+
+    // --- getInvoiceStatusBreakdown tests ---
+
+    public function test_get_invoice_status_breakdown_returns_all_statuses(): void
+    {
+        $client = Client::factory()->create();
+        $bap = Bap::factory()->approved()->create(['client_id' => $client->id]);
+
+        Invoice::factory()->create([
+            'bap_id' => $bap->id,
+            'client_id' => $client->id,
+            'status' => Invoice::STATUS_PAID,
+            'grand_total' => 1000000,
+            'paid_at' => now(),
+        ]);
+
+        Invoice::factory()->create([
+            'bap_id' => $bap->id,
+            'client_id' => $client->id,
+            'status' => Invoice::STATUS_UNPAID,
+            'grand_total' => 500000,
+        ]);
+
+        $result = $this->service->getInvoiceStatusBreakdown();
+
+        $this->assertCount(4, $result);
+        $statuses = array_column($result, 'status');
+        $this->assertContains('paid', $statuses);
+        $this->assertContains('unpaid', $statuses);
+        $this->assertContains('overdue', $statuses);
+        $this->assertContains('draft', $statuses);
+
+        $paid = collect($result)->firstWhere('status', 'paid');
+        $this->assertEquals(1, $paid['count']);
+        $this->assertEquals(1000000.0, $paid['total']);
+
+        $unpaid = collect($result)->firstWhere('status', 'unpaid');
+        $this->assertEquals(1, $unpaid['count']);
+        $this->assertEquals(500000.0, $unpaid['total']);
+
+        $overdue = collect($result)->firstWhere('status', 'overdue');
+        $this->assertEquals(0, $overdue['count']);
+        $this->assertEquals(0.0, $overdue['total']);
+    }
+
+    // --- getMonthlyWorkReports tests ---
+
+    public function test_get_monthly_work_reports_returns_12_months(): void
+    {
+        $result = $this->service->getMonthlyWorkReports();
+
+        $this->assertCount(12, $result);
+        foreach ($result as $entry) {
+            $this->assertArrayHasKey('month', $entry);
+            $this->assertArrayHasKey('count', $entry);
+            $this->assertMatchesRegularExpression('/^\d{4}-\d{2}$/', $entry['month']);
+        }
+    }
+
+    public function test_get_monthly_work_reports_counts_only_submitted_within_period(): void
+    {
+        $client = Client::factory()->create();
+
+        // 2 reports submitted this month
+        WorkReport::factory()->submitted()->count(2)->create([
+            'client_id' => $client->id,
+            'submitted_at' => Carbon::now(),
+        ]);
+
+        // 1 report draft this month (should not count)
+        WorkReport::factory()->create([
+            'client_id' => $client->id,
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+
+        // 1 report submitted 14 months ago (outside 12 months, should not count)
+        WorkReport::factory()->submitted()->create([
+            'client_id' => $client->id,
+            'submitted_at' => Carbon::now()->subMonths(14),
+        ]);
+
+        $result = $this->service->getMonthlyWorkReports();
+
+        $currentMonth = Carbon::now()->format('Y-m');
+        $currentMonthEntry = collect($result)->firstWhere('month', $currentMonth);
+        $this->assertEquals(2, $currentMonthEntry['count']);
+    }
+
+    // --- getCategoryDistribution tests ---
+
+    public function test_get_category_distribution_returns_submitted_counts(): void
+    {
+        $client = Client::factory()->create();
+        $cat1 = JobCategory::factory()->create(['name' => 'Maintenance AC']);
+        $cat2 = JobCategory::factory()->create(['name' => 'Electrical']);
+
+        WorkReport::factory()->submitted()->count(3)->create([
+            'client_id' => $client->id,
+            'category_id' => $cat1->id,
+            'submitted_at' => now(),
+        ]);
+
+        WorkReport::factory()->submitted()->count(1)->create([
+            'client_id' => $client->id,
+            'category_id' => $cat2->id,
+            'submitted_at' => now(),
+        ]);
+
+        // Draft report should not be counted
+        WorkReport::factory()->create([
+            'client_id' => $client->id,
+            'category_id' => $cat2->id,
+            'status' => WorkReport::STATUS_DRAFT,
+        ]);
+
+        $result = $this->service->getCategoryDistribution();
+
+        $this->assertCount(2, $result);
+        $this->assertEquals('Maintenance AC', $result[0]['category']);
+        $this->assertEquals(3, $result[0]['count']);
+        $this->assertEquals('Electrical', $result[1]['category']);
+        $this->assertEquals(1, $result[1]['count']);
     }
 
     // --- Service binding test ---

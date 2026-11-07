@@ -16,10 +16,16 @@ class DashboardController extends Controller
     {
         $kpiData = $this->dashboardService->getKpiData();
         $monthlyRevenue = $this->dashboardService->getMonthlyRevenue();
+        $invoiceStatus = $this->dashboardService->getInvoiceStatusBreakdown();
+        $monthlyWorkReports = $this->dashboardService->getMonthlyWorkReports();
+        $categoryDistribution = $this->dashboardService->getCategoryDistribution();
 
         return Inertia::render('Dashboard', [
             'kpiData' => $kpiData,
             'monthlyRevenue' => $monthlyRevenue,
+            'invoiceStatus' => $invoiceStatus,
+            'monthlyWorkReports' => $monthlyWorkReports,
+            'categoryDistribution' => $categoryDistribution,
         ]);
     }
 }

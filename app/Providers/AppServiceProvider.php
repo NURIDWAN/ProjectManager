@@ -59,5 +59,9 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(! $this->app->isProduction());
 
         Vite::prefetch(concurrency: 3);
+
+        if (! $this->app->runningInConsole() && (str_starts_with((string) config('app.url'), 'https://') || $this->app->isProduction())) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
     }
 }

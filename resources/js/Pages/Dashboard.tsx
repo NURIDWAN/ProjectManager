@@ -1,13 +1,15 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
-import { AlertTriangle, ArrowRight, FileCheck, FileText, Receipt } from 'lucide-react';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { KpiCard } from '@/Components/KpiCard';
 import { PageHeader } from '@/Components/PageHeader';
 import { RevenueChart } from '@/Components/RevenueChart';
+import { InvoiceStatusChart, type InvoiceStatusEntry } from '@/Components/InvoiceStatusChart';
+import { WorkReportsTrendChart, type MonthlyWorkReportEntry } from '@/Components/WorkReportsTrendChart';
+import { CategoryDistributionChart, type CategoryDistributionEntry } from '@/Components/CategoryDistributionChart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 interface KpiData {
     total_active_clients: number;
@@ -24,21 +26,10 @@ interface MonthlyRevenueEntry {
 interface DashboardProps {
     kpiData: KpiData;
     monthlyRevenue: MonthlyRevenueEntry[];
+    invoiceStatus: InvoiceStatusEntry[];
+    monthlyWorkReports: MonthlyWorkReportEntry[];
+    categoryDistribution: CategoryDistributionEntry[];
 }
-
-function getTrendPercent(current: number, previous: number): number {
-    if (previous === 0) {
-        return current > 0 ? 100 : 0;
-    }
-
-    return ((current - previous) / previous) * 100;
-}
-
-const shortcuts = [
-    { label: 'Laporan Kerja', description: 'Tinjau laporan dari teknisi', href: '/work-reports', icon: FileText },
-    { label: 'Berita Acara', description: 'Siapkan dan setujui BAP', href: '/baps', icon: FileCheck },
-    { label: 'Invoice', description: 'Kelola tagihan dan pembayaran', href: '/invoices', icon: Receipt },
-];
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -63,12 +54,25 @@ function DashboardSkeleton() {
                     </div>
                 ))}
             </div>
-            <Skeleton className="h-[300px] w-full rounded-xl" />
+            <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                <Skeleton className="h-[340px] w-full rounded-2xl" />
+                <Skeleton className="h-[340px] w-full rounded-2xl" />
+            </div>
+            <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                <Skeleton className="h-[340px] w-full rounded-2xl" />
+                <Skeleton className="h-[340px] w-full rounded-2xl" />
+            </div>
         </div>
     );
 }
 
-export default function Dashboard({ kpiData, monthlyRevenue }: DashboardProps) {
+export default function Dashboard({
+    kpiData,
+    monthlyRevenue,
+    invoiceStatus = [],
+    monthlyWorkReports = [],
+    categoryDistribution = [],
+}: DashboardProps) {
     const isLoading = !kpiData;
     const kpis = kpiData ? [
         {
@@ -113,7 +117,7 @@ export default function Dashboard({ kpiData, monthlyRevenue }: DashboardProps) {
             <Head title="Dashboard" />
 
             {isLoading ? <DashboardSkeleton /> : (
-                <div className="app-page">
+                <div className="app-page space-y-6">
                     {kpiData.overdue_count > 0 && (
                         <section aria-label="Peringatan invoice" className="flex flex-col gap-4 rounded-xl border border-destructive/25 bg-destructive/8 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                             <div className="flex items-start gap-3">
@@ -156,31 +160,16 @@ export default function Dashboard({ kpiData, monthlyRevenue }: DashboardProps) {
                         })}
                     </section>
 
-                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+                    {/* Finansial: Tren Pendapatan & Status Tagihan */}
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-2">
                         <RevenueChart data={monthlyRevenue} />
+                        <InvoiceStatusChart data={invoiceStatus} />
+                    </div>
 
-                        <section className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-[0_20px_40px_-35px_rgba(15,23,42,0.12)]">
-                            <h2 className="text-base font-semibold tracking-[-0.01em]">Akses cepat</h2>
-                            <p className="mt-1 text-sm text-muted-foreground">Buka pekerjaan yang paling sering digunakan.</p>
-                            <div className="mt-5 space-y-2">
-                                {shortcuts.map((shortcut) => (
-                                    <Link
-                                        key={shortcut.href}
-                                        href={shortcut.href}
-                                        className="group flex min-h-16 items-center gap-3 rounded-lg border border-transparent px-3 outline-none hover:border-border hover:bg-muted/55 focus-visible:ring-2 focus-visible:ring-ring"
-                                    >
-                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
-                                            <shortcut.icon className="size-4.5" strokeWidth={1.8} />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-foreground">{shortcut.label}</p>
-                                            <p className="truncate text-xs text-muted-foreground">{shortcut.description}</p>
-                                        </div>
-                                        <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                                    </Link>
-                                ))}
-                            </div>
-                        </section>
+                    {/* Operasional: Volume Pekerjaan & Distribusi Kategori */}
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                        <WorkReportsTrendChart data={monthlyWorkReports} />
+                        <CategoryDistributionChart data={categoryDistribution} />
                     </div>
                 </div>
             )}
