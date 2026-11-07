@@ -7,6 +7,19 @@
 
         <title inertia>ManPro</title>
 
+        <!-- PWA Meta & Icons -->
+        <link rel="manifest" href="/manifest.webmanifest">
+        <meta name="theme-color" content="#2563eb">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <meta name="apple-mobile-web-app-title" content="ManPro">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon-48.png">
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+        <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+
         <!-- Scripts -->
         @routes
         @viteReactRefresh

@@ -9,7 +9,6 @@ import {
     LayoutDashboard,
     LogOut,
     Menu,
-    MoreHorizontal,
     Package,
     PanelLeft,
     PanelLeftClose,
@@ -21,6 +20,7 @@ import {
     Users,
 } from 'lucide-react';
 import { BrandIdentity } from '@/Components/BrandIdentity';
+import { PwaStatusBanner } from '@/Components/PwaStatusBanner';
 import { ThemeToggle } from '@/Components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -192,18 +192,20 @@ function MobileMenu({
     currentUrl,
     company,
     trigger,
+    user,
 }: {
     items: NavItem[];
     currentUrl: string;
     company: PageProps['company'];
     trigger: ReactNode;
+    user: PageProps['auth']['user'];
 }) {
     const [open, setOpen] = useState(false);
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={trigger as React.ReactElement} />
-            <SheetContent side="left" className="w-[86vw] max-w-80 gap-0 p-0">
+            <SheetContent side="right" className="flex w-[86vw] max-w-80 flex-col gap-0 p-0">
                 <SheetHeader className="border-b px-4 py-3.5">
                     <SheetTitle>
                         <BrandIdentity name={company.name} logoUrl={company.logoUrl} />
@@ -212,20 +214,27 @@ function MobileMenu({
                 <div className="min-h-0 flex-1 overflow-y-auto">
                     <SidebarNav items={items} currentUrl={currentUrl} collapsed={false} onNavigate={() => setOpen(false)} />
                 </div>
+                <div className="border-t border-sidebar-border p-2">
+                    <UserMenu user={user} collapsed={false} />
+                </div>
             </SheetContent>
         </Sheet>
     );
 }
 
-function BottomNav({ items, currentUrl, company }: { items: NavItem[]; currentUrl: string; company: PageProps['company'] }) {
+function BottomNav({ items, currentUrl }: { items: NavItem[]; currentUrl: string }) {
     const preferred = ['Dashboard', 'Laporan Kerja', 'BAP', 'Invoice'];
     const primaryItems = preferred
         .map((label) => items.find((item) => item.label === label))
         .filter((item): item is NavItem => Boolean(item));
 
+    if (primaryItems.length === 0) {
+        return null;
+    }
+
     return (
         <nav aria-label="Navigasi cepat" className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/96 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-            <div className="mx-auto grid h-16 max-w-lg grid-flow-col auto-cols-fr px-1.5">
+            <div className="mx-auto grid h-16 max-w-lg grid-flow-col auto-cols-fr px-2">
                 {primaryItems.map((item) => {
                     const active = isActivePath(currentUrl, item.href);
                     return (
@@ -234,26 +243,22 @@ function BottomNav({ items, currentUrl, company }: { items: NavItem[]; currentUr
                             href={item.href}
                             aria-current={active ? 'page' : undefined}
                             className={cn(
-                                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                active ? 'text-primary' : 'text-muted-foreground',
+                                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1 text-[11px] font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring active:scale-95',
+                                active
+                                    ? 'font-semibold text-primary'
+                                    : 'text-muted-foreground hover:text-foreground',
                             )}
                         >
-                            <span className="[&>svg]:size-5 [&>svg]:stroke-[1.8]">{item.icon}</span>
+                            <span className={cn(
+                                '[&>svg]:size-5 [&>svg]:stroke-[1.8] transition-transform',
+                                active && 'scale-110',
+                            )}>
+                                {item.icon}
+                            </span>
                             <span className="max-w-full truncate">{item.label}</span>
                         </Link>
                     );
                 })}
-                <MobileMenu
-                    items={items}
-                    currentUrl={currentUrl}
-                    company={company}
-                    trigger={
-                        <button className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <MoreHorizontal className="size-5" strokeWidth={1.8} />
-                            <span>Menu</span>
-                        </button>
-                    }
-                />
             </div>
         </nav>
     );
@@ -278,19 +283,21 @@ export default function AuthenticatedLayout({
 
     return (
         <div className="min-h-[100dvh] bg-background">
+            <PwaStatusBanner />
             <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur-md lg:hidden">
+                <BrandIdentity name={company.name} logoUrl={company.logoUrl} className="min-w-0 flex-1" />
+                <ThemeToggle />
                 <MobileMenu
                     items={filteredItems}
                     currentUrl={currentUrl}
                     company={company}
+                    user={user}
                     trigger={
                         <Button variant="ghost" size="icon" aria-label="Buka navigasi">
                             <Menu className="size-5" />
                         </Button>
                     }
                 />
-                <BrandIdentity name={company.name} logoUrl={company.logoUrl} className="min-w-0 flex-1" />
-                <ThemeToggle />
             </header>
 
             <aside
@@ -347,7 +354,7 @@ export default function AuthenticatedLayout({
                 <div className="mx-auto max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</div>
             </main>
 
-            <BottomNav items={filteredItems} currentUrl={currentUrl} company={company} />
+            <BottomNav items={filteredItems} currentUrl={currentUrl} />
         </div>
     );
 }

@@ -1,8 +1,10 @@
 import InputError from '@/Components/InputError';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Mail } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 export default function ForgotPassword({ status }: { status?: string }) {
@@ -12,7 +14,6 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-
         post(route('password.email'));
     };
 
@@ -20,34 +21,51 @@ export default function ForgotPassword({ status }: { status?: string }) {
         <GuestLayout>
             <Head title="Lupa Password" />
 
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-[-0.03em]">Atur ulang password</h1>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Masukkan email akun Anda. Kami akan mengirim tautan untuk membuat password baru.</p>
+            <div className="mb-6 text-center">
+                <h1 className="text-xl font-bold tracking-tight text-foreground">Reset Password</h1>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Masukkan email untuk menerima tautan reset password.
+                </p>
             </div>
 
             {status && (
-                <div className="mb-4 text-sm font-medium text-green-600">
+                <div role="status" className="mb-5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-700 dark:text-emerald-300">
                     {status}
                 </div>
             )}
 
-            <form onSubmit={submit}>
-                <TextInput
-                    id="email"
-                    type="email"
-                    name="email"
-                    value={data.email}
-                    className="mt-1 block w-full"
-                    isFocused={true}
-                    onChange={(e) => setData('email', e.target.value)}
-                />
+            <form onSubmit={submit} className="space-y-4">
+                <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-medium">Email</Label>
+                    <div className="relative">
+                        <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value={data.email}
+                            autoComplete="username"
+                            autoFocus
+                            placeholder="nama@perusahaan.com"
+                            className="h-10 pl-9 text-sm"
+                            aria-invalid={Boolean(errors.email)}
+                            onChange={(e) => setData('email', e.target.value)}
+                        />
+                    </div>
+                    <InputError message={errors.email} />
+                </div>
 
-                <InputError message={errors.email} className="mt-2" />
+                <Button type="submit" className="w-full font-medium" disabled={processing}>
+                    {processing ? 'Mengirim...' : 'Kirim Tautan Reset'}
+                </Button>
 
-                <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="w-full" disabled={processing}>
-                        Kirim Tautan Reset
-                    </PrimaryButton>
+                <div className="text-center pt-2">
+                    <Link
+                        href={route('login')}
+                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                        Kembali ke halaman masuk
+                    </Link>
                 </div>
             </form>
         </GuestLayout>
